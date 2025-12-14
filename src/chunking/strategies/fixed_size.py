@@ -1,0 +1,50 @@
+from typing import List, Dict, Any, Optional
+
+from ..base import BaseChunker, Chunk
+
+
+class FixedSizeChunker(BaseChunker):
+    '''
+    Splits text into fixed-size chunks with optional overlap.
+    '''
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        '''
+        Initialize FixedSizeChunker with chunk size and overlap from config.
+
+        :param config: Configuration dictionary with 'chunk_size' and 'overlap' keys
+        :type config: Optional[Dict[str, Any]]
+        '''
+        super().__init__(config)
+        self.chunk_size = int(self.config["chunk_size"])
+        self.overlap = int(self.config["overlap"])
+
+        if self.chunk_size <= 0:
+            raise ValueError("chunk_size must be positive")
+        if self.overlap >= self.chunk_size:
+            raise ValueError("overlap must be smaller than chunk_size to avoid infinite loops")
+
+    def split_text(self, text: str, document_meta: Optional[Dict[str, Any]] = None) -> List[Chunk]:
+        document_meta = document_meta or {}
+        chunks = []
+        start = 0
+
+        while start < len(text):
+            end = min(start + self.chunk_size, len(text))
+            chunk_text = text[start:end]
+
+            new_chunk = Chunk(
+                text=chunk_text,
+                metadata={
+                    **document_meta,
+                    "start_char": start,
+                    "end_char": end,
+                },
+            )
+            chunks.append(new_chunk)
+
+            if end == len(text):
+                break
+
+            start += self.chunk_size - self.overlap
+
+        return chunks

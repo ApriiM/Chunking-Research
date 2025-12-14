@@ -1,0 +1,15 @@
+experiment_name: "demo_run_txt_file"
+input_file: "data/raw/sample.txt"
+# input_text: "This is a dummy text to test if the repository structure actually works."
+chunker:
+  name: "passage"
+  params:
+    passage_length: 8
+
+evaluations:
+  - chunk_stats
+
+output:
+  save_chunks: true
+  chunks_path: "results/demo_chunks.jsonl"
+  overwrite: false

@@ -1,0 +1,23 @@
+experiment_name: "text_tiling_demo"
+input_file: "data/raw/sample.txt"
+
+chunker:
+  name: "text_tiling"
+  params:
+    w: 20
+    k: 10
+    similarity_method: block_comparison
+    stopwords: []
+    smoothing_method: default
+    smoothing_width: 2
+    smoothing_rounds: 1
+    cutoff_policy: hc
+    demo_mode: false
+
+evaluations:
+  - chunk_stats
+
+output:
+  save_chunks: true
+  chunks_path: "results/text_tiling_chunks.jsonl"
+  overwrite: false

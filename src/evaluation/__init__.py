@@ -1,31 +1,16 @@
-from typing import Callable, Iterable, List, Tuple
+from typing import Iterable, List, Tuple
 
 from .dummy_metrics import calculate_chunk_stats
+from .retrieval_eval import retrieval_at_k
+from .registry import get_evaluation, register_evaluation, resolve_evaluations
 
-# Registry of available evaluation functions
-EVALUATIONS = {
-    "chunk_stats": calculate_chunk_stats,
-}
+# Register built-ins
+register_evaluation("chunk_stats", calculate_chunk_stats)
+register_evaluation("retrieval_at_k", retrieval_at_k)
 
 
-def get_evaluations(names: Iterable[str]) -> List[Tuple[str, Callable]]:
-    """Resolve evaluation names to callables.
+def get_evaluations(names: Iterable[str]) -> List[Tuple[str, callable]]:
+    return resolve_evaluations(names)
 
-    :param names: Iterable of evaluation names or a single name string
-    :raises ValueError: if an unknown evaluation name is provided
-    :return: List of (name, callable) pairs in requested order
-    """
 
-    if names is None:
-        return []
-
-    if isinstance(names, str):
-        names = [names]
-
-    resolved: List[Tuple[str, Callable]] = []
-    for name in names:
-        fn = EVALUATIONS.get(name)
-        if not fn:
-            raise ValueError(f"Unknown evaluation '{name}'. Available: {list(EVALUATIONS.keys())}")
-        resolved.append((name, fn))
-    return resolved
+__all__ = ["get_evaluations", "register_evaluation", "get_evaluation", "resolve_evaluations"]

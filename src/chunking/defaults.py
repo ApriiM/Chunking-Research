@@ -4,55 +4,34 @@ from copy import deepcopy
 from typing import Dict
 
 
-def _defaults_path() -> str:
-    '''
-    Get the path to the chunker defaults YAML file.
-    
-    :return: Path to the chunker defaults YAML file
-    :rtype: str
-    '''
+def _chunker_defaults_path(name: str) -> str:
+    """Return the path to the chunker-specific defaults YAML."""
+
     return os.path.normpath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "configs", "chunkers", "defaults.yaml")
+        os.path.join(os.path.dirname(__file__), "..", "..", "configs", "chunkers", f"{name}.yaml")
     )
 
 
-def _load_defaults_from_yaml() -> Dict[str, Dict[str, object]]:
-    '''
-    Load the chunker defaults from the YAML file.
-    
-    :return: Nested dictionary of chunker defaults
-    :rtype: Dict[str, Dict[str, object]]
-    ''' 
-    path = _defaults_path()
+_DEFAULT_CACHE: Dict[str, Dict[str, object]] = {}
+
+
+def _load_defaults(name: str) -> Dict[str, object]:
+    path = _chunker_defaults_path(name)
     if not os.path.exists(path):
-        raise FileNotFoundError(f"Chunker defaults file not found: {path}")
+        return {}
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     if not isinstance(data, dict):
-        raise ValueError(f"Chunker defaults file must map names to dicts: {path}")
-    # Ensure nested dicts
-    cleaned = {}
-    for key, val in data.items():
-        if isinstance(val, dict):
-            cleaned[key] = val
-    return cleaned
-
-
-CHUNKER_DEFAULTS: Dict[str, Dict[str, object]] = _load_defaults_from_yaml()
+        raise ValueError(f"Chunker defaults file must be a mapping: {path}")
+    return data
 
 
 def merge_with_defaults(name: str, overrides: Dict[str, object]) -> Dict[str, object]:
-    '''
-    Merge provided configuration overrides with the defaults for the given chunker name.
-    
-    :param name: Name of the chunker
-    :type name: str
-    :param overrides: Configuration overrides
-    :type overrides: Dict[str, object]
-    :return: Merged configuration dictionary
-    :rtype: Dict[str, object]
-    '''
-    base = deepcopy(CHUNKER_DEFAULTS.get(name, {}))
+    """Merge overrides with chunker-specific defaults from configs/chunkers/{name}.yaml."""
+
+    if name not in _DEFAULT_CACHE:
+        _DEFAULT_CACHE[name] = _load_defaults(name)
+    base = deepcopy(_DEFAULT_CACHE.get(name, {}) or {})
     if overrides:
         base.update(overrides)
     return base

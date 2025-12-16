@@ -21,7 +21,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run a chunking experiment.")
     parser.add_argument(
         "--config",
-        default="configs/experiments/fixed_size/demo.yaml",
+        default="configs/experiments/chunking/fixed_size_demo.yaml",
         help="Path to experiment config YAML",
     )
     return parser.parse_args()

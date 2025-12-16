@@ -1,0 +1,34 @@
+experiment_name: "poquad_fixed_size_demo"
+
+dataset:
+  name: "poquad"
+  params:
+    split: "train[:200]"
+    revision: "refs/convert/parquet"
+    cache_dir: "data/hf_cache"
+    limit: null
+  preprocessed_path: "data/processed/poquad_train_200.jsonl"
+  use_preprocessed: true
+  save_preprocessed: true
+
+chunker:
+  name: "fixed_size"
+  params:
+    chunk_size: 400
+    overlap: 50
+  # precomputed_chunks_path: "results/poquad_chunks.jsonl"  # uncomment to reuse saved chunks
+
+retrieval:
+  method: "tfidf"
+  top_k: 5
+  relevance: "substring"
+
+evaluations:
+  - retrieval_at_k
+  - chunk_stats
+
+output:
+  results_path: "results/poquad_retrieval_results.jsonl"
+  chunks_path: "results/poquad_chunks.jsonl"
+  manifest_path: "results/poquad_manifest.json"
+  overwrite: false

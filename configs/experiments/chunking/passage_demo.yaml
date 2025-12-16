@@ -1,0 +1,14 @@
+experiment_name: "demo_passage"
+input_file: "data/raw/sample.txt"
+chunker:
+  name: "passage"
+  params:
+    passage_length: 8
+
+evaluations:
+  - chunk_stats
+
+output:
+  save_chunks: true
+  chunks_path: "results/demo_chunks_passage.jsonl"
+  overwrite: false

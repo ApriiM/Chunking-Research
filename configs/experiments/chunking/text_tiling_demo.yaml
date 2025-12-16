@@ -1,4 +1,4 @@
-experiment_name: "text_tiling_demo"
+experiment_name: "demo_text_tiling"
 input_file: "data/raw/sample.txt"
 
 chunker:
@@ -19,5 +19,5 @@ evaluations:
 
 output:
   save_chunks: true
-  chunks_path: "results/text_tiling_chunks.jsonl"
+  chunks_path: "results/demo_chunks_text_tiling.jsonl"
   overwrite: false

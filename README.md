@@ -18,7 +18,6 @@ Toolkit for loading QA-style datasets into a unified documents/queries format an
 ## Chunking (documents -> passages)
 - Notebook: run `examples/02_chunk_unified.ipynb` to chunk `documents.jsonl` with a chosen strategy (`fixed_size`, `passage`, `text_tiling`) and save `passages.jsonl`.
 - CLI: `python -m src.chunking.prepare_passages --documents-path data/processed/poquad/example_2/documents.jsonl --chunker-name fixed_size --chunker-params "{chunk_size: 100, overlap: 50}" --output-path data/processed/poquad/example_2/passages.jsonl --overwrite`
-- Legacy single-text config runner: `python run_chunking.py --config configs/experiments/chunking/fixed_size_demo.yaml`.
 - Add a chunker:
 	1) Create `src/chunking/strategies/<name>.py`.
 	2) Decorate the class with `@chunker("<name>")` and implement `split_text`.
@@ -29,9 +28,9 @@ Toolkit for loading QA-style datasets into a unified documents/queries format an
 - `src/data_loader/core/schemas.py`: document/query/passage/chunk record shapes + JSONL helpers.
 - `src/chunking/strategies/`: chunking strategies.
 - `configs/chunkers/`: per-chunker default params.
-- `configs/experiments/chunking/`: example configs for `run_chunking.py`.
+- `configs/chunkers/`: per-chunker default params.
 
 ## Tips
 - HF datasets cache under `data/hf_cache`; override via loader kwargs.
 - `prepare_passages.py` writes `passages.jsonl` with `parentId` linking back to documents.
-- `ensure_output_path` (in `run_chunking.py`) appends a timestamp if overwrite is false.
+- Overwrite handling: the chunking CLI will refuse to overwrite unless `--overwrite` is passed; add timestamp logic if you need append-safe semantics.

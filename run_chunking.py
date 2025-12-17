@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 import sys
 import yaml
@@ -9,7 +8,7 @@ from datetime import datetime
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 from src.chunking import get_chunker
-from src.data_loader import load_text_file
+from src.data_loader.core.schemas import ChunkRecord, save_chunk_records_jsonl
 
 
 def parse_args():
@@ -61,7 +60,10 @@ def load_chunker_input(config: dict):
     if "input_file" in config:
         input_path = config["input_file"]
         print(f"Loading data from file: {input_path}")
-        text_data = load_text_file(input_path)
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"File not found: {input_path}")
+        with open(input_path, "r", encoding="utf-8") as f:
+            text_data = f.read()
         doc_meta = {"source": input_path}
     elif "input_text" in config:
         text_data = config["input_text"]
@@ -88,19 +90,6 @@ def ensure_output_path(path: str, overwrite: bool) -> str:
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
     return f"{base}_{ts}{ext}"
 
-
-def save_chunks_to_file(chunks, output_path: str):
-    '''Persist chunks as JSONL with text, id, and metadata.'''
-    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        for chunk in chunks:
-            payload = {
-                "chunk_id": chunk.chunk_id,
-                "text": chunk.text,
-                "metadata": chunk.metadata,
-            }
-            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    print(f"Saved {len(chunks)} chunks to {output_path}")
 
 def main():
     # Parse command line arguments
@@ -130,7 +119,9 @@ def main():
 
     if save_chunks:
         final_path = ensure_output_path(chunks_path, overwrite)
-        save_chunks_to_file(chunks, final_path)
+        records = [ChunkRecord.from_chunk(chunk) for chunk in chunks]
+        save_chunk_records_jsonl(records, final_path)
+        print(f"Saved {len(records)} chunks to {final_path}")
 
 if __name__ == "__main__":
     main()

@@ -1,32 +1,37 @@
 ## Chunking Research
-
-Toolkit for loading QA-style datasets and producing chunked text outputs in a unified JSONL format. Evaluation is intentionally out of scope (run it in your target system).
+Toolkit for loading QA-style datasets into a unified documents/queries format and producing chunked passages for retrieval evaluation. Evaluation is out of scope—run it in your target system.
 
 ## Setup
 - Python 3.9+ recommended.
-- Create/activate a virtual environment, then `pip install -r requirements.txt`.
-- For TextTiling, ensure NLTK data is available: `python -m nltk.downloader punkt`.
+- Create/activate a virtual environment, then install: `pip install -r requirements.txt`.
+- For TextTiling: `python -m nltk.downloader punkt`.
 
-## Quickstart (CLI)
-- Single-document chunking: `python run_chunking.py --config configs/experiments/chunking/fixed_size_demo.yaml`.
-- Other chunker presets: `configs/experiments/chunking/passage_demo.yaml` and `configs/experiments/chunking/text_tiling_demo.yaml`.
-- Outputs are JSONL with `chunk_id`, `text`, and `metadata` (metadata includes propagated document info such as `sample_id`). When `output.overwrite` is false, existing targets get a timestamp suffix.
+## Data loading (documents & queries)
+- Notebook: run `examples/01_load_dataset_unified.ipynb` to load a registered dataset slice (e.g., PoQuAD), preview, and write `documents.jsonl` + `queries.jsonl` under `data/processed/poquad/example/`.
+- CLI: `python -m src.data_loader.prepare_dataset --dataset poquad --split train[:200] --output-dir data/processed/poquad/example_2 --overwrite`
+	- Loader returns `(documents, queries)` already normalized; files are written as JSONL.
+- Add a dataset:
+	1) Create `src/data_loader/datasets/<name>.py`.
+	2) Decorate a loader with `@dataset("<name>")` and return `List[DocumentRecord], List[QueryRecord]`.
+	3) Normalize inside the loader; keep per-dataset quirks there.
 
-## Notebook workflow
-1) `examples/01_load_dataset_unified.ipynb`: load a registered dataset slice (e.g., PoQuAD), preview a sample, and write unified QA JSONL to `data/processed/`.
-2) `examples/02_chunk_unified.ipynb`: pick a chunker (`fixed_size`, `passage`, `text_tiling`), apply it to the unified samples, and save chunk records via `src.schemas.save_chunk_records_jsonl`.
-3) Evaluate chunks externally in your target system; the repo stops at producing chunk JSONL.
+## Chunking (documents -> passages)
+- Notebook: run `examples/02_chunk_unified.ipynb` to chunk `documents.jsonl` with a chosen strategy (`fixed_size`, `passage`, `text_tiling`) and save `passages.jsonl`.
+- CLI: `python -m src.chunking.prepare_passages --documents-path data/processed/poquad/example_2/documents.jsonl --chunker-name fixed_size --chunker-params "{chunk_size: 100, overlap: 50}" --output-path data/processed/poquad/example_2/passages.jsonl --overwrite`
+- Legacy single-text config runner: `python run_chunking.py --config configs/experiments/chunking/fixed_size_demo.yaml`.
+- Add a chunker:
+	1) Create `src/chunking/strategies/<name>.py`.
+	2) Decorate the class with `@chunker("<name>")` and implement `split_text`.
+	3) Optionally add defaults in `configs/chunkers/<name>.yaml`.
 
-## Repository layout
-- Chunkers in `src/chunking` with defaults in `configs/chunkers`.
-- Chunking experiment configs in `configs/experiments/chunking`.
-- Dataset loaders in `src/data_loader/datasets` via the dataset registry.
-- Shared serialization helpers for chunks in `src/schemas.py`.
-
-## Extending components
-- Chunker: add a strategy under `src/chunking/strategies` and either decorate with `@chunker("name")` (preferred) or register it manually in `src/chunking/__init__.py`; optional defaults in `configs/chunkers/<name>.yaml`.
-- Dataset: add a loader under `src/data_loader/datasets` and decorate with `@dataset` to make it discoverable.
+## Repository layout (essentials)
+- `src/data_loader/datasets/`: dataset-specific loaders (return documents/queries).
+- `src/data_loader/core/schemas.py`: document/query/passage/chunk record shapes + JSONL helpers.
+- `src/chunking/strategies/`: chunking strategies.
+- `configs/chunkers/`: per-chunker default params.
+- `configs/experiments/chunking/`: example configs for `run_chunking.py`.
 
 ## Tips
-- Hugging Face datasets cache under `data/hf_cache` by default; adjust paths in configs if needed.
-- Use `run_chunking.ensure_output_path` when saving artifacts manually to avoid accidental overwrites.
+- HF datasets cache under `data/hf_cache`; override via loader kwargs.
+- `prepare_passages.py` writes `passages.jsonl` with `parentId` linking back to documents.
+- `ensure_output_path` (in `run_chunking.py`) appends a timestamp if overwrite is false.

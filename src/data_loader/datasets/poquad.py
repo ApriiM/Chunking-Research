@@ -1,9 +1,10 @@
-from typing import List, Optional
+import hashlib
+from typing import Dict, List, Optional, Tuple
 
 from datasets import load_dataset
 
-from src.data_loader.core.types import QASample
 from src.data_loader.core.registry import dataset
+from src.data_loader.core.schemas import DocumentRecord, QueryRecord
 
 
 @dataset("poquad")
@@ -12,7 +13,7 @@ def load_poquad(
     cache_dir: Optional[str] = None,
     limit: Optional[int] = None,
     revision: str = "refs/convert/parquet",
-) -> List[QASample]:
+) -> Tuple[List[DocumentRecord], List[QueryRecord]]:
     """Load PoQuAD (SQuAD-style) from Hugging Face Hub.
 
     :param split: Dataset split or slicing expression (e.g., "train[:500]")
@@ -30,19 +31,54 @@ def load_poquad(
     if limit is not None:
         dataset = dataset.select(range(min(limit, len(dataset))))
 
-    samples: List[QASample] = []
+    documents: List[DocumentRecord] = []
+    queries: List[QueryRecord] = []
+
+    # Deduplicate documents by identical context to avoid many copies per question.
+    context_to_doc: Dict[str, str] = {}
+    doc_meta_store: Dict[str, Dict[str, object]] = {}
+
     for row in dataset:
+        context = row.get("context", "")
+        title = row.get("title")
         answers = row.get("answers") or {}
         answer_texts = list(answers.get("text", []) or [])
         answer_starts = list(answers.get("answer_start", []) or [])
-        samples.append(
-            QASample(
-                sample_id=str(row.get("id")),
-                context=row.get("context", ""),
-                question=row.get("question", ""),
-                answers=answer_texts,
-                answer_starts=answer_starts,
-                title=row.get("title"),
+
+        # Stable doc_id derived from context hash for deduplication
+        if context not in context_to_doc:
+            digest = hashlib.md5(context.encode("utf-8")).hexdigest()[:12]
+            doc_id = f"poquad-{digest}"
+            context_to_doc[context] = doc_id
+            doc_meta: Dict[str, object] = {}
+            if title:
+                doc_meta["title"] = title
+            doc_meta_store[doc_id] = doc_meta
+            documents.append(
+                DocumentRecord(
+                    doc_id=doc_id,
+                    contents=context,
+                    metadata=doc_meta,
+                )
+            )
+        else:
+            doc_id = context_to_doc[context]
+
+        query_meta: Dict[str, object] = {}
+        if title:
+            query_meta["title"] = title
+        if answer_texts:
+            query_meta["answers"] = answer_texts
+        if answer_starts:
+            query_meta["answer_starts"] = answer_starts
+
+        queries.append(
+            QueryRecord(
+                query_id=f"q.{row.get('id')}",
+                contents=row.get("question", ""),
+                relevant=[doc_id],
+                metadata=query_meta,
             )
         )
-    return samples
+
+    return documents, queries

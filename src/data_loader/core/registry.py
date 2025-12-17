@@ -1,8 +1,8 @@
 from typing import Callable, Dict
 
-from .types import QASample
+from .types import DatasetArtifacts
 
-DatasetLoader = Callable[..., list[QASample]]
+DatasetLoader = Callable[..., DatasetArtifacts]
 
 _DATASET_REGISTRY: Dict[str, DatasetLoader] = {}
 

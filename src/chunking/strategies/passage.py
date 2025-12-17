@@ -1,9 +1,11 @@
 import re
 from typing import List, Dict, Any, Optional
 
-from ..base import BaseChunker, Chunk
+from ..core.base import BaseChunker, Chunk
+from ..core.registry import chunker
 
 
+@chunker("passage")
 class SentencePassageChunker(BaseChunker):
     """
     Groups text into passages of N sentences, similar to the passage_length

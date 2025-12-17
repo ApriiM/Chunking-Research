@@ -1,9 +1,9 @@
 """Dataset-specific loaders live here and self-register via the registry."""
 
-from src.data_loader.registry import register_dataset
-from .poquad import load_poquad
+import importlib
+import pkgutil
 
-# register built-in datasets
-register_dataset("poquad", load_poquad)
-
-__all__ = ["load_poquad"]
+# auto-import all dataset modules so they can self-register
+for m in pkgutil.iter_modules(__path__):
+	if not m.ispkg:
+		importlib.import_module(f"{__name__}.{m.name}")

@@ -9,9 +9,11 @@ from nltk.tokenize.texttiling import (
     LC,
 )
 
-from ..base import BaseChunker, Chunk
+from ..core.base import BaseChunker, Chunk
+from ..core.registry import chunker
 
 
+@chunker("text_tiling")
 class TextTilingChunker(BaseChunker):
     """Wraps NLTK's TextTilingTokenizer for text segmentation.
 

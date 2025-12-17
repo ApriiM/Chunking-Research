@@ -2,9 +2,11 @@ from typing import List, Optional
 
 from datasets import load_dataset
 
-from src.data_loader.types import QASample
+from src.data_loader.core.types import QASample
+from src.data_loader.core.registry import dataset
 
 
+@dataset("poquad")
 def load_poquad(
     split: str = "train",
     cache_dir: Optional[str] = None,

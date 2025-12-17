@@ -4,7 +4,7 @@ from typing import List, Optional
 
 @dataclass
 class QASample:
-    """Minimal QA example used across loaders and pipelines."""
+    """Minimal QA example shared across loaders and experiments."""
 
     sample_id: str
     context: str

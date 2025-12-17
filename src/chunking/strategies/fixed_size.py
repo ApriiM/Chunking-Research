@@ -1,8 +1,10 @@
 from typing import List, Dict, Any, Optional
 
-from ..base import BaseChunker, Chunk
+from ..core.base import BaseChunker, Chunk
+from ..core.registry import chunker
 
 
+@chunker("fixed_size")
 class FixedSizeChunker(BaseChunker):
     '''
     Splits text into fixed-size chunks with optional overlap.

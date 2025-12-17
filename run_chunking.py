@@ -10,7 +10,7 @@ from typing import List, Tuple
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 from src.chunking import get_chunker
-from src.data_loader.loader import load_text_file
+from src.data_loader import load_text_file
 from src.evaluation import get_evaluations
 
 

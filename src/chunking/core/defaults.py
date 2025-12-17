@@ -1,16 +1,20 @@
 import os
+from pathlib import Path
 import yaml
 from copy import deepcopy
 from typing import Dict
 
 
 def _chunker_defaults_path(name: str) -> str:
-    """Return the path to the chunker-specific defaults YAML."""
+    """Resolve the chunker defaults YAML path by walking up to the repo root."""
 
-    return os.path.normpath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "configs", "chunkers", f"{name}.yaml")
-    )
-
+    here = Path(__file__).resolve()
+    for cand in [here.parent, *here.parents]:
+        candidate = cand / "configs" / "chunkers" / f"{name}.yaml"
+        if candidate.exists():
+            return str(candidate)
+    # Fall back to the expected repo layout even if the file does not exist
+    return str(here.parents[2] / "configs" / "chunkers" / f"{name}.yaml")
 
 _DEFAULT_CACHE: Dict[str, Dict[str, object]] = {}
 

@@ -1,53 +1,34 @@
 ## Chunking Research
 
-Toolkit for chunking text, running retrieval-style evaluations on QA datasets, and comparing chunkers and retrievers via config-driven pipelines.
+Toolkit for text chunking plus light-weight chunk evaluation and datasets in a unified JSONL format.
 
 ## Setup
-- Create/activate a virtual environment.
-- Install dependencies: `pip install -r requirements.txt`.
+- Python 3.9+ recommended.
+- Create/activate a virtual environment, then `pip install -r requirements.txt`.
+- For TextTiling, ensure NLTK data is available: `python -m nltk.downloader punkt`.
+
+## Quickstart (CLI)
+- Run a demo config: `python run_chunking.py --config configs/experiments/chunking/fixed_size_demo.yaml`.
+- Other presets: `configs/experiments/chunking/passage_demo.yaml` and `configs/experiments/chunking/text_tiling_demo.yaml`.
+- Outputs are JSONL with `chunk_id`, `text`, and `metadata` (metadata includes propagated document info such as `sample_id`). When `output.overwrite` is false, existing targets get a timestamp suffix.
+
+## Notebook workflow
+1) `examples/01_load_dataset_unified.ipynb`: load a registered dataset slice (e.g., PoQuAD), preview a sample, and write unified QA JSONL to `data/processed/`.
+2) `examples/02_chunk_unified.ipynb`: pick a chunker (`fixed_size`, `passage`, `text_tiling`), apply it to the unified samples, and save chunk records via `src.schemas.save_chunk_records_jsonl`.
+3) `examples/03_eval_chunks.ipynb`: load precomputed chunk records, convert to `Chunk` objects, and compute basic statistics.
 
 ## Repository layout
-- Chunkers live in [src/chunking](src/chunking) with per-strategy defaults in [configs/chunkers](configs/chunkers).
-- Datasets live in [src/data_loader/datasets](src/data_loader/datasets) and register through [src/data_loader/registry.py](src/data_loader/registry.py).
-- Retrievers register via [src/retrieval/registry.py](src/retrieval/registry.py).
-- Evaluations live in [src/evaluation](src/evaluation) with registry in [src/evaluation/registry.py](src/evaluation/registry.py).
-- Runners: chunker-only [run_chunking.py](run_chunking.py), retrieval pipeline [run_retrieval_eval.py](run_retrieval_eval.py).
-- Configs: chunker demos under [configs/experiments](configs/experiments) (fixed_size, passage, text_tiling); full pipelines under [configs/experiments/pipeline](configs/experiments/pipeline).
-
-## Quickstart
-- Chunker-only demo: `python run_chunking.py --config configs/experiments/fixed_size/demo.yaml`.
-- Retrieval pipeline (PoQuAD): `python run_retrieval_eval.py --config configs/experiments/pipeline/poquad_demo.yaml`.
-
-## Pipeline config schema (high level)
-- dataset: name, params (loader kwargs), preprocessed_path, use_preprocessed, save_preprocessed.
-- chunker: name, params, optional precomputed_chunks_path to reuse saved chunks.
-- retrieval: method, top_k, relevance (currently substring fallback).
-- evaluations: list of eval names (e.g., retrieval_at_k, chunk_stats).
-- output: results_path, chunks_path, manifest_path, overwrite.
-
-## Creating a new benchmark/dataset
-1) Implement a loader in [src/data_loader/datasets](src/data_loader/datasets) returning List[QASample] and register it in [src/data_loader/registry.py](src/data_loader/registry.py).
-2) Add a pipeline config under [configs/experiments/pipeline](configs/experiments/pipeline) setting dataset.name and dataset.params for your loader; set preprocessed_path for caching.
-3) Run `python run_retrieval_eval.py --config <your_config>`; chunks/results/manifest will be written under results/.
-
-## Creating or modifying a pipeline
-- Copy an existing pipeline config (e.g., [configs/experiments/pipeline/poquad_demo.yaml](configs/experiments/pipeline/poquad_demo.yaml)).
-- Swap chunker (chunker.name/params) or retriever (retrieval.method/top_k).
-- Add evaluations under evaluations:; built-ins: retrieval_at_k, chunk_stats.
-- To reuse existing chunks, set chunker.precomputed_chunks_path to a chunks JSONL produced earlier.
+- Chunkers in `src/chunking` with defaults in `configs/chunkers`.
+- Chunking experiment configs in `configs/experiments/chunking`.
+- Dataset loaders in `src/data_loader/datasets` via the dataset registry.
+- Evaluations in `src/evaluation` with registry helpers.
+- Shared serialization helpers for chunks in `src/schemas.py`.
 
 ## Extending components
-- Chunker: add a strategy under [src/chunking/strategies](src/chunking/strategies) and register in [src/chunking/__init__.py](src/chunking/__init__.py); optional defaults in configs/chunkers/<name>.yaml.
-- Retriever: register a factory in [src/retrieval/registry.py](src/retrieval/registry.py) and reference via retrieval.method in configs.
-- Evaluation: implement a function and register it in [src/evaluation/__init__.py](src/evaluation/__init__.py); selectable via evaluations in configs.
-- Dataset: add a loader under [src/data_loader/datasets](src/data_loader/datasets) and register it; set dataset.name/params accordingly.
+- Chunker: add a strategy under `src/chunking/strategies` and either decorate with `@chunker("name")` (preferred) or register it manually in `src/chunking/__init__.py`; optional defaults in `configs/chunkers/<name>.yaml`.
+- Evaluation: implement a function, decorate with `@evaluation`, and import it in `src/evaluation/__init__.py` for auto-registration.
+- Dataset: add a loader under `src/data_loader/datasets` and decorate with `@dataset` to make it discoverable.
 
-## Outputs
-- Samples cache: data/processed/*.jsonl (preprocessed QA samples).
-- Chunks: JSONL with chunk_id, text, metadata (includes sample_id).
-- Retrieval results: per-sample retrieval outputs JSONL.
-- Manifest: JSON with config snapshot and aggregated metrics.
-
-## Notes
-- Overwrite control via output.overwrite; if false, files get timestamped suffixes.
-- Current relevance policy is substring-based; alternative policies can be added in [src/evaluation/retrieval.py](src/evaluation/retrieval.py).
+## Tips
+- Hugging Face datasets cache under `data/hf_cache` by default; adjust paths in configs if needed.
+- Use `run_chunking.ensure_output_path` when saving artifacts manually to avoid accidental overwrites.

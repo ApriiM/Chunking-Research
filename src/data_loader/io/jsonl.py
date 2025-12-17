@@ -2,7 +2,7 @@ import json
 import os
 from typing import Iterable, List
 
-from .types import QASample
+from src.data_loader.core.types import QASample
 
 
 def save_samples_jsonl(samples: Iterable[QASample], path: str) -> None:

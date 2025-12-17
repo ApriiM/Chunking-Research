@@ -11,6 +11,16 @@ def register_evaluation(name: str, fn: EvaluationFn):
     _EVAL_REGISTRY[name] = fn
 
 
+def evaluation(name: str):
+    """Decorator to register an evaluation function by name."""
+
+    def decorator(fn: EvaluationFn) -> EvaluationFn:
+        register_evaluation(name, fn)
+        return fn
+
+    return decorator
+
+
 def get_evaluation(name: str) -> EvaluationFn:
     fn = _EVAL_REGISTRY.get(name)
     if not fn:

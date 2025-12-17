@@ -7,9 +7,6 @@ chunker:
     chunk_size: 100
     overlap: 10
 
-evaluations:
-  - chunk_stats
-
 output:
   save_chunks: true
   chunks_path: "results/demo_chunks_fixed_size.jsonl"

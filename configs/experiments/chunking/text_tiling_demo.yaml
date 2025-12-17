@@ -14,9 +14,6 @@ chunker:
     cutoff_policy: hc
     demo_mode: false
 
-evaluations:
-  - chunk_stats
-
 output:
   save_chunks: true
   chunks_path: "results/demo_chunks_text_tiling.jsonl"

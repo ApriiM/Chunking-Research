@@ -4,14 +4,12 @@ import os
 import sys
 import yaml
 from datetime import datetime
-from typing import List, Tuple
 
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 from src.chunking import get_chunker
 from src.data_loader import load_text_file
-from src.evaluation import get_evaluations
 
 
 def parse_args():
@@ -52,11 +50,6 @@ def load_chunker_config(config: dict):
     if not chunker_name:
         raise ValueError("Config must include chunker.name")
     return chunker_name, chunker_params
-
-def load_evaluations(config: dict):
-    '''Resolve requested evaluations to callables.'''
-    requested = config.get("evaluations")
-    return get_evaluations(requested)
 
 def load_chunker_input(config: dict):
     '''
@@ -121,9 +114,6 @@ def main():
     # Load chunker configuration
     chunker_name, chunker_params = load_chunker_config(cfg)
 
-    # Resolve evaluations to run
-    evaluations = load_evaluations(cfg)
-
     # Output configuration
     save_chunks, chunks_path, overwrite = load_output_config(cfg)
 
@@ -141,14 +131,6 @@ def main():
     if save_chunks:
         final_path = ensure_output_path(chunks_path, overwrite)
         save_chunks_to_file(chunks, final_path)
-
-    # Evaluate chunks using requested metrics
-    for eval_name, eval_fn in evaluations:
-        print(f"\n--- {eval_name} ---")
-        metrics = eval_fn(chunks)
-        for key, val in metrics.items():
-            print(f"{key}: {val}")
-
 
 if __name__ == "__main__":
     main()

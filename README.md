@@ -17,7 +17,10 @@ Toolkit for loading QA-style datasets into a unified documents/queries format an
 
 ## Chunking (documents -> passages)
 - Notebook: run `examples/02_chunk_unified.ipynb` to chunk `documents.jsonl` with a chosen strategy (`fixed_size`, `passage`, `text_tiling`) and save `passages.jsonl`.
-- CLI: `python -m src.chunking.prepare_passages --documents-path data/processed/poquad/example_2/documents.jsonl --chunker-name fixed_size --chunker-params "{chunk_size: 100, overlap: 50}" --output-path data/processed/poquad/example_2/passages.jsonl --overwrite`
+- CLI (flags): `python -m src.chunking.prepare_passages --documents-path data/processed/poquad/example_2/documents.jsonl --chunker-name fixed_size --chunker-params "{chunk_size: 100, overlap: 50}" --output-path data/processed/poquad/example_2/passages.jsonl --overwrite`
+- CLI (YAML config):
+	- `python run_chunking.py --config configs/experiments/run_chunking_fixed_size.yaml` (expects `documents_path` JSONL of `DocumentRecord`s, plus `chunker` section and `output` section).
+	- `python -m src.chunking.prepare_passages --config configs/experiments/run_chunking_fixed_size.yaml` for direct documents→passages with the same schema.
 - Add a chunker:
 	1) Create `src/chunking/strategies/<name>.py`.
 	2) Decorate the class with `@chunker("<name>")` and implement `split_text`.
@@ -28,7 +31,7 @@ Toolkit for loading QA-style datasets into a unified documents/queries format an
 - `src/data_loader/core/schemas.py`: document/query/passage/chunk record shapes + JSONL helpers.
 - `src/chunking/strategies/`: chunking strategies.
 - `configs/chunkers/`: per-chunker default params.
-- `configs/chunkers/`: per-chunker default params.
+- `configs/experiments/`: ready-to-run YAML configs for chunking CLI tools.
 
 ## Tips
 - HF datasets cache under `data/hf_cache`; override via loader kwargs.

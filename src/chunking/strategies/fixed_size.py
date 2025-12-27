@@ -25,7 +25,23 @@ class FixedSizeChunker(BaseChunker):
         if self.overlap >= self.chunk_size:
             raise ValueError("overlap must be smaller than chunk_size to avoid infinite loops")
 
-    def split_text(self, text: str, document_meta: Optional[Dict[str, Any]] = None) -> List[Chunk]:
+    def split_text(
+        self,
+        documents: List[str],
+        documents_meta: Optional[List[Dict[str, Any]]] = None,
+    ) -> List[Chunk]:
+        if documents_meta is not None and len(documents_meta) != len(documents):
+            raise ValueError("documents_meta length must match documents length")
+
+        all_chunks: List[Chunk] = []
+        for idx, text in enumerate(documents):
+            meta = documents_meta[idx] if documents_meta is not None else None
+            all_chunks.extend(self._split_single(text, meta))
+        return all_chunks
+
+    def _split_single(
+        self, text: str, document_meta: Optional[Dict[str, Any]] = None
+    ) -> List[Chunk]:
         document_meta = document_meta or {}
         chunks = []
         start = 0

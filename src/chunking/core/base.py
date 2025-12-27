@@ -20,15 +20,19 @@ class BaseChunker(ABC):
         self.config = config or {}
 
     @abstractmethod
-    def split_text(self, text: str, document_meta: Optional[Dict[str, Any]] = None) -> List[Chunk]:
+    def split_text(
+        self,
+        documents: List[str],
+        documents_meta: Optional[List[Dict[str, Any]]] = None,
+    ) -> List[Chunk]:
         '''
-        Split input text into a list of `Chunk` objects.
+        Split a collection of documents into an ordered list of `Chunk` objects.
 
-        :param text: Raw text to segment
-        :type text: str
-        :param document_meta: Optional metadata propagated into each chunk
-        :type document_meta: Optional[Dict[str, Any]]
-        :return: Ordered list of chunks produced by the strategy
+        :param documents: Raw documents to segment
+        :type documents: List[str]
+        :param documents_meta: Optional list of metadata, aligned to `documents`
+        :type documents_meta: Optional[List[Dict[str, Any]]]
+        :return: Ordered list of chunks produced by the strategy for all documents
         :rtype: List[Chunk]
         '''
         pass

@@ -1,0 +1,13 @@
+chunker:
+  name: fixed_size
+  params:
+    chunk_size: 256
+    overlap: 32
+
+# JSONL file with DocumentRecord entries (id, contents, metadata)
+documents_path: data/processed/poquad/example_2/documents.jsonl
+
+output:
+  save_chunks: true
+  chunks_path: data/processed/poquad/example_2/passages.jsonl
+  overwrite: false

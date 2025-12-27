@@ -52,20 +52,15 @@ def chunk_documents(
         )
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    meta_path = _metadata_path(output_path)
+    final_output = output_path if overwrite else _timestamped_path(output_path)
+    meta_path = _metadata_path(final_output)
 
-    if not overwrite:
-        if os.path.exists(output_path):
-            raise FileExistsError(f"Refusing to overwrite existing file: {output_path}")
-        if os.path.exists(meta_path):
-            raise FileExistsError(f"Refusing to overwrite existing metadata file: {meta_path}")
-
-    save_passage_records_jsonl(passages, output_path)
+    save_passage_records_jsonl(passages, final_output)
     _write_metadata(
         meta_path,
         {
             "documents_path": documents_path,
-            "output_path": output_path,
+            "output_path": final_output,
             "chunker_name": chunker_name,
             "chunker_params": chunker_params,
             "overwrite": overwrite,
@@ -74,7 +69,7 @@ def chunk_documents(
             "generated_at": datetime.now(timezone.utc).isoformat(),
         },
     )
-    print(f"Wrote {len(passages)} passages to {output_path}")
+    print(f"Wrote {len(passages)} passages to {final_output}")
     print(f"Wrote metadata to {meta_path}")
 
 
@@ -141,6 +136,12 @@ def _coerce_bool(value) -> bool:
 def _metadata_path(output_path: str) -> str:
     base, _ = os.path.splitext(output_path)
     return f"{base}.meta.json"
+
+
+def _timestamped_path(path: str) -> str:
+    base, ext = os.path.splitext(path)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    return f"{base}_{ts}{ext}"
 
 
 def _write_metadata(path: str, payload: Dict) -> None:

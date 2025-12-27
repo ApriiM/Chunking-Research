@@ -10,9 +10,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 from src.chunking import get_chunker
 from src.data_loader.core.schemas import (
-    ChunkRecord,
-    save_chunk_records_jsonl,
+    PassageRecord,
     load_document_records_jsonl,
+    save_passage_records_jsonl,
 )
 
 
@@ -150,8 +150,26 @@ def main():
         final_path = ensure_output_path(chunks_path, overwrite)
         meta_path = _metadata_path(final_path)
 
-        records = [ChunkRecord.from_chunk(chunk) for chunk in chunks]
-        save_chunk_records_jsonl(records, final_path)
+        if overwrite:
+            if os.path.exists(final_path):
+                os.remove(final_path)
+            if os.path.exists(meta_path):
+                os.remove(meta_path)
+
+        passages = []
+        for ch in chunks:
+            meta = ch.metadata or {}
+            parent_id = str(meta.get("doc_id", ""))
+            passages.append(
+                PassageRecord(
+                    passage_id=str(ch.chunk_id),
+                    contents=ch.text,
+                    parent_id=parent_id,
+                    metadata=meta,
+                )
+            )
+
+        save_passage_records_jsonl(passages, final_path)
         _write_metadata(
             meta_path,
             {
@@ -162,11 +180,11 @@ def main():
                 "output_path": final_path,
                 "overwrite": overwrite,
                 "document_count": len(documents),
-                "chunk_count": len(records),
+                "chunk_count": len(passages),
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             },
         )
-        print(f"Saved {len(records)} chunks to {final_path}")
+        print(f"Saved {len(passages)} passages to {final_path}")
         print(f"Saved metadata to {meta_path}")
 
 if __name__ == "__main__":

@@ -1,0 +1,3 @@
+[submodule "submodules/late_chunking"]
+	path = submodules/late_chunking
+	url = https://github.com/jina-ai/late-chunking

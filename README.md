@@ -5,6 +5,20 @@ Toolkit for loading QA-style datasets into a unified documents/queries format an
 - Python 3.9+ recommended.
 - Create/activate a virtual environment, then install: `pip install -r requirements.txt`.
 - For TextTiling: `python -m nltk.downloader punkt`.
+### Submodules
+After cloning this repo normally, you may notice that code under `submodules/` is missing. Those folders are **Git submodules** (external repositories), and they require an extra step to fetch their contents.
+
+If you clone fresh:
+```bash
+git clone --recurse-submodules <THIS_REPO_URL>
+```
+If you already cloned:
+```bash
+git submodule update --init --recursive
+```
+
+To add a new external chunking repository as a submodule, follow the steps in
+[Add a submodule (maintainers)](#add-a-submodule-maintainers).
 
 ## Data loading (documents & queries)
 - Notebook: run `examples/01_load_dataset_unified.ipynb` to load a registered dataset slice (e.g., PoQuAD), preview, and write `documents.jsonl` + `queries.jsonl` under `data/processed/poquad/example/`.
@@ -35,3 +49,17 @@ Toolkit for loading QA-style datasets into a unified documents/queries format an
 - HF datasets cache under `data/hf_cache`; override via loader kwargs.
 - `prepare_passages.py` writes `passages.jsonl` with `parentId` linking back to documents.
 - Overwrite handling: the chunking CLI will refuse to overwrite unless `--overwrite` is passed; add timestamp logic if you need append-safe semantics.
+
+## Submodules (external repos)
+We vendor third-party research code as **git submodules** under a single, consistent location:
+
+- **All submodules live under:** `submodules/<name>/`
+- Example: `submodules/late_chunking/` (jina-ai/late-chunking)
+
+### Add a submodule (maintainers)
+From the repo root:
+```bash
+git submodule add <REPO_URL> submodules/<name>
+git add .gitmodules submodules/<name>
+git commit -m "Add <name> submodule"
+```

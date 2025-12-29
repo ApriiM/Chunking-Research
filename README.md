@@ -41,6 +41,7 @@ To add a new external chunking repository as a submodule, follow the steps in
 ## Passage evaluation (retrieval)
 - Notebook: run `examples/03_eval_chunks.ipynb` to evaluate pre-chunked passages against queries.
 - CLI: `python -m src.eval_chunks --passages-meta data/processed/poquad/example/passages_20251229T153044.meta.json --model-name jinaai/jina-embeddings-v2-small-en --output-path results/eval_chunks/poquad_fixed_size.json`
+- Late chunking (pool spans from full documents): add `--late-chunking --late-docs-source passages` (rebuilds document context by concatenating passage texts; use `--passage-separator` to control glue). For long documents, use `--truncate-max-length` or `--long-late-chunking-embed-size` with `--long-late-chunking-overlap-size`.
 - Requires the late-chunking dependencies (`mteb`, `transformers`, `torch`) from the submodule environment.
 
 ## Repository layout (essentials)

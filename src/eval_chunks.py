@@ -1,8 +1,11 @@
 import argparse
+import bisect
 import json
 import os
+import sys
 from collections import Counter
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
@@ -20,6 +23,16 @@ DEFAULT_MODEL_NAME = "jinaai/jina-embeddings-v2-small-en"
 def _read_json(path: str) -> Dict:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def _ensure_late_chunking_imports() -> None:
+    late_chunking_root = Path(__file__).resolve().parents[1] / "submodules" / "late_chunking"
+    if not late_chunking_root.exists():
+        raise FileNotFoundError(
+            f"late_chunking submodule not found at {late_chunking_root}"
+        )
+    if str(late_chunking_root) not in sys.path:
+        sys.path.insert(0, str(late_chunking_root))
 
 
 def _disable_torchvision_imports() -> None:
@@ -137,6 +150,157 @@ def _encode_with_transformers(model, tokenizer, texts: List[str], batch_size: in
         outputs.append(pooled)
 
     return torch.cat(outputs, dim=0)
+
+
+def _extend_special_tokens(
+    annotations: List[Tuple[int, int]],
+    n_instruction_tokens: int = 0,
+    include_prefix: bool = True,
+    include_sep: bool = True,
+) -> List[Tuple[int, int]]:
+    new_annotations = []
+    for i in range(len(annotations)):
+        add_left_offset = 1 if (not include_prefix) or int(i > 0) else 0
+        left_offset = 1 + n_instruction_tokens
+        left = annotations[i][0] + add_left_offset * left_offset
+
+        add_sep = 1 if include_sep and ((i + 1) == len(annotations)) else 0
+        right_offset = left_offset + add_sep
+        right = annotations[i][1] + right_offset
+        new_annotations.append((left, right))
+    return new_annotations
+
+
+def _build_docs_from_passages(
+    passages,
+    separator: str,
+) -> Tuple[Dict[str, str], Dict[str, List[Tuple[str, int, int]]]]:
+    grouped: Dict[str, List[Tuple[int, object]]] = {}
+    for idx, passage in enumerate(passages):
+        grouped.setdefault(passage.parent_id, []).append((idx, passage))
+
+    doc_texts: Dict[str, str] = {}
+    doc_spans: Dict[str, List[Tuple[str, int, int]]] = {}
+
+    for doc_id, items in grouped.items():
+        have_offsets = all(
+            (item[1].metadata or {}).get("start_char") is not None for item in items
+        )
+        if have_offsets:
+            items.sort(key=lambda x: x[1].metadata.get("start_char", 0))
+        else:
+            items.sort(key=lambda x: x[0])
+
+        spans: List[Tuple[str, int, int]] = []
+        parts: List[str] = []
+        cursor = 0
+        for position, (_, passage) in enumerate(items):
+            start = cursor
+            parts.append(passage.contents)
+            cursor += len(passage.contents)
+            end = cursor
+            spans.append((passage.passage_id, start, end))
+            if separator and position < len(items) - 1:
+                parts.append(separator)
+                cursor += len(separator)
+
+        doc_texts[doc_id] = "".join(parts)
+        doc_spans[doc_id] = spans
+
+    return doc_texts, doc_spans
+
+
+def _build_docs_from_documents(
+    passages,
+    documents,
+) -> Tuple[Dict[str, str], Dict[str, List[Tuple[str, int, int]]]]:
+    doc_lookup = {doc.doc_id: doc.contents for doc in documents}
+    doc_texts: Dict[str, str] = {}
+    doc_spans: Dict[str, List[Tuple[str, int, int]]] = {}
+
+    for passage in passages:
+        doc_id = passage.parent_id
+        if doc_id not in doc_lookup:
+            continue
+        meta = passage.metadata or {}
+        if "start_char" not in meta or "end_char" not in meta:
+            continue
+        doc_texts[doc_id] = doc_lookup[doc_id]
+        doc_spans.setdefault(doc_id, []).append(
+            (passage.passage_id, int(meta["start_char"]), int(meta["end_char"]))
+        )
+
+    for doc_id, spans in doc_spans.items():
+        spans.sort(key=lambda x: x[1])
+    return doc_texts, doc_spans
+
+
+def _char_spans_to_token_spans(
+    tokenizer,
+    text: str,
+    spans: List[Tuple[str, int, int]],
+) -> List[Tuple[str, int, int]]:
+    tokens = tokenizer(
+        text, return_offsets_mapping=True, add_special_tokens=False
+    )
+    offsets = tokens.offset_mapping
+    start_offsets = [offset[0] for offset in offsets]
+    end_offsets = [offset[1] for offset in offsets]
+
+    token_spans: List[Tuple[str, int, int]] = []
+    for passage_id, start_char, end_char in spans:
+        start_idx = bisect.bisect_left(start_offsets, start_char)
+        end_idx = bisect.bisect_right(end_offsets, end_char)
+        if start_idx < len(offsets) and end_idx <= len(offsets):
+            token_spans.append((passage_id, start_idx, end_idx))
+    return token_spans
+
+
+def _filter_token_spans(
+    spans: List[Tuple[str, int, int]],
+    max_length: Optional[int],
+) -> List[Tuple[str, int, int]]:
+    if max_length is None:
+        return spans
+    filtered: List[Tuple[str, int, int]] = []
+    for passage_id, start, end in spans:
+        if start >= max_length - 1:
+            continue
+        end = min(end, max_length - 1)
+        if end - start >= 1:
+            filtered.append((passage_id, start, end))
+    return filtered
+
+
+def _embed_with_overlap(
+    model,
+    model_inputs,
+    embed_size: int,
+    overlap_size: int,
+):
+    import torch
+
+    len_tokens = len(model_inputs["input_ids"][0])
+    if len_tokens > embed_size:
+        indices = []
+        for i in range(0, len_tokens, embed_size - overlap_size):
+            start = i
+            end = min(i + embed_size, len_tokens)
+            indices.append((start, end))
+    else:
+        indices = [(0, len_tokens)]
+
+    outputs = []
+    for start, end in indices:
+        batch_inputs = {k: v[:, start:end] for k, v in model_inputs.items()}
+        with torch.no_grad():
+            model_output = model(**batch_inputs)
+        if start > 0:
+            outputs.append(model_output[0][:, overlap_size:])
+        else:
+            outputs.append(model_output[0])
+
+    return torch.cat(outputs, dim=1).to(model.device)
 
 
 def _normalize_embeddings(embs: np.ndarray) -> np.ndarray:
@@ -293,6 +457,12 @@ def evaluate_chunks(
     max_passages: Optional[int] = None,
     show_progress: bool = False,
     normalize: bool = True,
+    late_chunking: bool = False,
+    late_docs_source: str = "passages",
+    passage_separator: str = "\n",
+    truncate_max_length: Optional[int] = None,
+    long_late_chunking_embed_size: int = 0,
+    long_late_chunking_overlap_size: int = 256,
 ) -> Dict:
     documents_path, queries_path, passages_path, meta = _resolve_paths(
         passages_meta_path, documents_path, queries_path, passages_path
@@ -327,13 +497,109 @@ def evaluate_chunks(
 
     model = _load_model(model_name, model_weights)
 
+    if truncate_max_length is not None and long_late_chunking_embed_size > 0:
+        truncate_max_length = None
+
     query_embs = _encode_texts(
         model, query_texts, batch_size=batch_size, show_progress=show_progress, mode="queries"
     )
-    passage_texts = [p.contents for p in filtered_passages]
-    passage_embs = _encode_texts(
-        model, passage_texts, batch_size=batch_size, show_progress=show_progress, mode="corpus"
-    )
+
+    if late_chunking:
+        try:
+            from transformers import AutoTokenizer
+        except Exception as exc:
+            raise ImportError("transformers is required for late chunking") from exc
+
+        _ensure_late_chunking_imports()
+        from chunked_pooling import chunked_pooling
+
+        tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+
+        if late_docs_source == "documents":
+            doc_texts, doc_spans = _build_docs_from_documents(filtered_passages, documents)
+        else:
+            doc_texts, doc_spans = _build_docs_from_passages(
+                filtered_passages, passage_separator
+            )
+
+        passage_embs = []
+        passage_ids = []
+        passage_doc_ids = []
+
+        for doc_id, text in _progress_iter(
+            list(doc_texts.items()),
+            show_progress,
+            "Late chunking docs",
+        ):
+            spans = doc_spans.get(doc_id, [])
+            if not spans:
+                continue
+            token_spans = _char_spans_to_token_spans(tokenizer, text, spans)
+            if not token_spans:
+                continue
+
+            annotations = _extend_special_tokens(
+                [(start, end) for _, start, end in token_spans]
+            )
+            token_spans = [
+                (token_spans[i][0], annotations[i][0], annotations[i][1])
+                for i in range(len(token_spans))
+            ]
+
+            model_inputs = tokenizer(
+                text,
+                return_tensors="pt",
+                padding=True,
+                truncation=truncate_max_length is not None,
+                max_length=truncate_max_length,
+            )
+            if model.device.type == "cuda":
+                model_inputs = {k: v.to(model.device) for k, v in model_inputs.items()}
+
+            if long_late_chunking_embed_size > 0:
+                token_embeddings = _embed_with_overlap(
+                    model,
+                    model_inputs,
+                    embed_size=long_late_chunking_embed_size,
+                    overlap_size=long_late_chunking_overlap_size,
+                )
+                max_len = token_embeddings.shape[1]
+                filtered_spans = _filter_token_spans(token_spans, max_len)
+                annotations = [(start, end) for _, start, end in filtered_spans]
+                if not annotations:
+                    continue
+                pooled = chunked_pooling(
+                    (token_embeddings,),
+                    [annotations],
+                    max_length=None,
+                )[0]
+            else:
+                max_len = model_inputs["input_ids"].shape[1]
+                filtered_spans = _filter_token_spans(token_spans, max_len)
+                annotations = [(start, end) for _, start, end in filtered_spans]
+                if not annotations:
+                    continue
+                model_outputs = model(**model_inputs)
+                pooled = chunked_pooling(
+                    model_outputs,
+                    [annotations],
+                    max_length=max_len,
+                )[0]
+
+            passage_embs.extend(pooled)
+            for passage_id, _, _ in filtered_spans:
+                passage_ids.append(passage_id)
+                passage_doc_ids.append(doc_id)
+    else:
+        passage_texts = [p.contents for p in filtered_passages]
+        passage_embs = _encode_texts(
+            model, passage_texts, batch_size=batch_size, show_progress=show_progress, mode="corpus"
+        )
+        passage_ids = [p.passage_id for p in filtered_passages]
+        passage_doc_ids = [p.parent_id for p in filtered_passages]
+
+    if not passage_ids:
+        raise ValueError("No passages available for evaluation after filtering")
 
     query_embs = _to_numpy(query_embs)
     passage_embs = _to_numpy(passage_embs)
@@ -346,13 +612,14 @@ def evaluate_chunks(
         query_embs = _normalize_embeddings(query_embs)
         passage_embs = _normalize_embeddings(passage_embs)
 
-    doc_chunk_counts = Counter(p.parent_id for p in filtered_passages)
+    doc_chunk_counts = Counter(passage_doc_ids)
     max_chunks = max(doc_chunk_counts.values()) if doc_chunk_counts else 1
     k_values = _calculate_k_values(max_chunks)
     top_k = max(k_values)
 
-    passage_ids = [p.passage_id for p in filtered_passages]
-    passage_to_doc = {p.passage_id: p.parent_id for p in filtered_passages}
+    passage_to_doc = {
+        passage_id: doc_id for passage_id, doc_id in zip(passage_ids, passage_doc_ids)
+    }
     results = _build_results(
         query_ids=query_ids,
         query_embeddings=query_embs,
@@ -406,9 +673,16 @@ def evaluate_chunks(
         "model_weights": model_weights,
         "batch_size": batch_size,
         "normalize": normalize,
+        "late_chunking": late_chunking,
+        "late_docs_source": late_docs_source,
+        "passage_separator": passage_separator,
+        "truncate_max_length": truncate_max_length,
+        "long_late_chunking_embed_size": long_late_chunking_embed_size,
+        "long_late_chunking_overlap_size": long_late_chunking_overlap_size,
         "document_count": len(documents),
         "query_count": len(query_ids),
         "passage_count": len(filtered_passages),
+        "used_passage_count": len(passage_ids),
         "raw_query_count": len(queries),
         "raw_passage_count": len(passages),
         "max_passages_per_doc": max_chunks,
@@ -464,6 +738,40 @@ def parse_args() -> argparse.Namespace:
         help="L2-normalize embeddings before scoring",
     )
     parser.add_argument(
+        "--late-chunking",
+        action="store_true",
+        help="Use late chunking to embed chunks from full documents",
+    )
+    parser.add_argument(
+        "--late-docs-source",
+        default="passages",
+        choices=["passages", "documents"],
+        help="Source of document text for late chunking",
+    )
+    parser.add_argument(
+        "--passage-separator",
+        default="\n",
+        help="Separator used when reconstructing documents from passages",
+    )
+    parser.add_argument(
+        "--truncate-max-length",
+        type=int,
+        default=None,
+        help="Optional max token length for truncation during late chunking",
+    )
+    parser.add_argument(
+        "--long-late-chunking-embed-size",
+        type=int,
+        default=0,
+        help="Token length for long late chunking windows (0 disables)",
+    )
+    parser.add_argument(
+        "--long-late-chunking-overlap-size",
+        type=int,
+        default=256,
+        help="Token overlap for long late chunking windows",
+    )
+    parser.add_argument(
         "--output-path",
         default=None,
         help="Optional JSON path for metrics output",
@@ -486,6 +794,12 @@ def main() -> None:
         max_passages=args.max_passages,
         show_progress=args.show_progress,
         normalize=args.normalize,
+        late_chunking=args.late_chunking,
+        late_docs_source=args.late_docs_source,
+        passage_separator=args.passage_separator,
+        truncate_max_length=args.truncate_max_length,
+        long_late_chunking_embed_size=args.long_late_chunking_embed_size,
+        long_late_chunking_overlap_size=args.long_late_chunking_overlap_size,
     )
     print(json.dumps(payload.get("scores", {}), ensure_ascii=False, indent=2))
     if args.output_path:

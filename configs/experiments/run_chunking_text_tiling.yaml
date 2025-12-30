@@ -1,0 +1,20 @@
+chunker:
+  name: text_tiling
+  params:
+    w: 20
+    k: 10
+    similarity_method: block_comparison
+    stopwords: []
+    smoothing_method: default
+    smoothing_width: 2
+    smoothing_rounds: 1
+    cutoff_policy: hc
+    demo_mode: false
+
+# JSONL file with DocumentRecord entries (id, contents, metadata)
+documents_path: data/processed/poquad/example_2/documents.jsonl
+
+output:
+  save_chunks: true
+  chunks_path: data/processed/poquad/example_2/passages_text_tiling.jsonl
+  overwrite: true

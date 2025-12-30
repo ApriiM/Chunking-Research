@@ -30,13 +30,13 @@ class TextTilingChunker(BaseChunker):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
         self.tokenizer = TextTilingTokenizer(
-            w=int(self.config["w"]),
-            k=int(self.config["k"]),
+            w=self._as_int("w"),
+            k=self._as_int("k"),
             similarity_method=self._resolve_similarity(self.config.get("similarity_method")),
             stopwords=self._resolve_stopwords(self.config.get("stopwords")),
             smoothing_method=self._resolve_smoothing(self.config.get("smoothing_method")),
-            smoothing_width=int(self.config["smoothing_width"]),
-            smoothing_rounds=int(self.config["smoothing_rounds"]),
+            smoothing_width=self._as_int("smoothing_width"),
+            smoothing_rounds=self._as_int("smoothing_rounds"),
             cutoff_policy=self._resolve_cutoff(self.config.get("cutoff_policy")),
             demo_mode=bool(self.config.get("demo_mode", False)),
         )
@@ -62,7 +62,11 @@ class TextTilingChunker(BaseChunker):
         if not text:
             return []
 
-        segments = self.tokenizer.tokenize(text)
+        try:
+            segments = self.tokenizer.tokenize(text)
+        except ValueError:
+            segments = [text]
+
         chunks: List[Chunk] = []
         for idx, seg in enumerate(segments):
             seg_text = seg.strip()
@@ -94,9 +98,7 @@ class TextTilingChunker(BaseChunker):
         if isinstance(value, str):
             if value == "default":
                 return DEFAULT_SMOOTHING
-            # Unknown string falls back to default
             return DEFAULT_SMOOTHING
-        # Allow callers to pass explicit sequences (e.g., list/tuple weights)
         return value
 
     def _resolve_cutoff(self, value: Any):
@@ -109,7 +111,12 @@ class TextTilingChunker(BaseChunker):
         return mapping.get(value, HC)
 
     def _resolve_stopwords(self, value: Any):
-        # If None, avoid NLTK download requirement by using empty list
         if value is None or value == "None":
             return None
         return value
+
+    def _as_int(self, key: str) -> int:
+        val = int(self.config[key])
+        if val <= 0:
+            raise ValueError(f"{key} must be positive")
+        return val

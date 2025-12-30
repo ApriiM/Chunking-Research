@@ -1,0 +1,17 @@
+chunker:
+  name: passage_spacy
+  params:
+    passage_length: 1
+    spacy_model: pl_core_news_md
+    use_sentencizer: true
+    disable:
+      - ner
+      - textcat
+
+# JSONL file with DocumentRecord entries (id, contents, metadata)
+documents_path: data/processed/poquad/example_2/documents.jsonl
+
+output:
+  save_chunks: true
+  chunks_path: data/processed/poquad/example_2/passages_spacy.jsonl
+  overwrite: true

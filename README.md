@@ -4,7 +4,7 @@ Toolkit for loading QA-style datasets into a unified documents/queries format an
 ## Setup
 - Python 3.9+ recommended.
 - Create/activate a virtual environment, then install: `pip install -r requirements.txt`.
-- For TextTiling: `python -m nltk.downloader punkt`.
+- For TextTiling and LumberChunker: `python -m nltk.downloader punkt`.
 ### Submodules
 After cloning this repo normally, you may notice that code under `submodules/` is missing. Those folders are **Git submodules** (external repositories), and they require an extra step to fetch their contents.
 

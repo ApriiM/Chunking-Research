@@ -1,3 +1,6 @@
 [submodule "submodules/late_chunking"]
 	path = submodules/late_chunking
 	url = https://github.com/jina-ai/late-chunking
+[submodule "submodules/lumberchunker"]
+	path = submodules/lumberchunker
+	url = https://github.com/joaodsmarques/LumberChunker.git

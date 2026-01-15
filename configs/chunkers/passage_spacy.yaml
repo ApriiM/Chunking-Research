@@ -1,0 +1,6 @@
+passage_length: 10
+spacy_model: en_core_web_sm
+use_sentencizer: true
+disable:
+  - ner
+  - textcat

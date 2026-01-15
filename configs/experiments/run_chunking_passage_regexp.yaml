@@ -4,9 +4,9 @@ chunker:
     passage_length: 10
 
 # JSONL file with DocumentRecord entries (id, contents, metadata)
-documents_path: data/processed/poquad/example_2/documents.jsonl
+documents_path: data/processed/poquad/example_2/documents/documents.jsonl
 
 output:
   save_chunks: true
-  chunks_path: data/processed/poquad/example_2/passages_regexp.jsonl
+  chunks_path: data/processed/poquad/example_2/passages_all/passages_regexp.jsonl
   overwrite: true

@@ -91,9 +91,16 @@ def _resolve_paths(
     if not passages_path:
         raise ValueError("output_path not found in metadata; pass --passages-path")
     if queries_path is None:
-        base_dir = os.path.dirname(documents_path)
-        queries_path = os.path.join(base_dir, "queries.jsonl")
+        queries_path = _default_queries_path(documents_path)
     return documents_path, queries_path, passages_path, meta
+
+
+def _default_queries_path(documents_path: str) -> str:
+    doc_dir = os.path.dirname(documents_path)
+    if os.path.basename(doc_dir).lower() == "documents":
+        base_dir = os.path.dirname(doc_dir)
+        return os.path.join(base_dir, "queries", "queries.jsonl")
+    return os.path.join(doc_dir, "queries.jsonl")
 
 
 def _encode_texts(model, texts: List[str], batch_size: int, show_progress: bool, mode: str):

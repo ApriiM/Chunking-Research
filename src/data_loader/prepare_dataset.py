@@ -31,9 +31,14 @@ def prepare_dataset(
     loader = get_dataset_loader(dataset)
     documents, queries = loader(split=split, cache_dir=cache_dir, limit=limit, **loader_kwargs)
 
-    os.makedirs(output_dir, exist_ok=True)
-    documents_path = os.path.join(output_dir, "documents.jsonl")
-    queries_path = os.path.join(output_dir, "queries.jsonl")
+    documents_dir = os.path.join(output_dir, "documents")
+    queries_dir = os.path.join(output_dir, "queries")
+    passages_dir = os.path.join(output_dir, "passages")
+    passages_all_dir = os.path.join(output_dir, "passages_all")
+    for path in (documents_dir, queries_dir, passages_dir, passages_all_dir):
+        os.makedirs(path, exist_ok=True)
+    documents_path = os.path.join(documents_dir, "documents.jsonl")
+    queries_path = os.path.join(queries_dir, "queries.jsonl")
 
     if not overwrite:
         for path in (documents_path, queries_path):

@@ -74,7 +74,7 @@ def chunk_documents(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Chunk documents.jsonl into passages.jsonl.")
+    parser = argparse.ArgumentParser(description="Chunk documents.jsonl into passages_all/passages.jsonl.")
     parser.add_argument("--config", default=None, help="Path to experiment YAML; overrides other flags")
     parser.add_argument("--documents-path", help="Path to documents.jsonl")
     parser.add_argument("--chunker-name", help="Registered chunker name")
@@ -86,7 +86,7 @@ def parse_args():
     parser.add_argument(
         "--output-path",
         default=None,
-        help="Where to write passages.jsonl (defaults alongside documents.jsonl)",
+        help="Where to write passages.jsonl (defaults to <dataset>/passages_all/passages.jsonl)",
     )
     parser.add_argument("--overwrite", action="store_true", help="Allow overwriting existing outputs")
     return parser.parse_args()
@@ -138,6 +138,13 @@ def _metadata_path(output_path: str) -> str:
     return f"{base}.meta.json"
 
 
+def _dataset_root_from_documents_path(documents_path: str) -> str:
+    doc_dir = os.path.dirname(documents_path)
+    if os.path.basename(doc_dir).lower() == "documents":
+        return os.path.dirname(doc_dir)
+    return doc_dir
+
+
 def _timestamped_path(path: str) -> str:
     base, ext = os.path.splitext(path)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
@@ -169,8 +176,8 @@ def main():
         overwrite = args.overwrite
 
     if output_path is None:
-        base_dir = os.path.dirname(documents_path)
-        output_path = os.path.join(base_dir, "passages.jsonl")
+        base_dir = _dataset_root_from_documents_path(documents_path)
+        output_path = os.path.join(base_dir, "passages_all", "passages.jsonl")
 
     chunk_documents(
         documents_path=documents_path,

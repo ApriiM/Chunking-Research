@@ -1,0 +1,59 @@
+results_dir: data/results/
+
+datasets:
+  # Dataset config template:
+  # - dataset       [Mandatory]
+  #   split         [Optional default: "train"]
+  #   output_dir    [Optional default: data/processed/{dataset}/]
+  #   cache_dir     [Optional default: None]
+  #   limit         [Optional default: None]
+  #   loader_kwargs [Optional default: {}]
+  - dataset: fiqa2018
+    split: test
+    output_dir: data/processed/fiqa2018/
+    cache_dir: data/hf_cache
+  - dataset: gutenqa
+    split: test
+    output_dir: data/processed/gutenqa/
+    cache_dir: data/hf_cache
+  - dataset: nfcorpus
+    split: test
+    output_dir: data/processed/nfcorpus/
+    cache_dir: data/hf_cache
+  - dataset: poquad
+    split: train
+    output_dir: data/processed/poquad/
+    cache_dir: data/hf_cache
+  - dataset: scifact
+    split: test
+    output_dir: data/processed/scifact/
+    cache_dir: data/hf_cache
+  - dataset: squad
+    split: train
+    output_dir: data/processed/squad/
+    cache_dir: data/hf_cache
+
+chunkers:
+  - name: passage_spacy
+    params:
+      passage_length: 1
+      spacy_model: pl_core_news_md
+      use_sentencizer: true
+      disable:
+        - ner
+        - textcat
+  - name: text_tiling
+    params:
+      w: 20
+      k: 10
+      similarity_method: block_comparison
+      stopwords: []
+      smoothing_method: default
+      smoothing_width: 2
+      smoothing_rounds: 1
+      cutoff_policy: hc
+      demo_mode: false
+  - name: fixed_size
+    params:
+      chunk_size: 256
+      overlap: 32

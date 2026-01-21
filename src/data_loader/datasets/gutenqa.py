@@ -27,7 +27,7 @@ def _split_base_and_slice(split_expr: str) -> Tuple[str, Optional[slice]]:
 
 @dataset("gutenqa")
 def load_gutenqa(
-    split: str = None,
+    split: str = "test",
     cache_dir: Optional[str] = None,
     limit: Optional[int] = None,
     dataset_name: str = "LumberChunker/GutenQA",

@@ -4,6 +4,7 @@ import json
 import traceback
 import yaml
 import pandas as pd
+import random
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -24,6 +25,8 @@ Usage:
 """
 
 DEFAULT_CONFIG_PATH = "configs/experiments/run_pipeline.yaml"
+DEFAULT_DOCUMENTS_PATH = Path("documents") / "documents.jsonl"
+DEFAULT_QUERIES_PATH = Path("queries") / "queries.jsonl"
 
 
 def save_results(results: List[Dict[str, Any]], results_dir: Path) -> None:
@@ -96,10 +99,59 @@ def parse_datasets_config(datasets_raw: List[Dict[str, Any]]) -> List[Dict[str, 
             "output_dir": ds_raw.get("output_dir", f"data/processed/{ds_raw['dataset']}"),
             "cache_dir": ds_raw.get("cache_dir", None),
             "limit": ds_raw.get("limit", None),
+            "max_documents": ds_raw.get("max_documents", None),
             "loader_kwargs": ds_raw.get("loader_kwargs", {}),
             "overwrite": ds_raw.get("overwrite", False)})
     
     return datasets_conf
+
+
+def limit_documents_in_corpus(output_dir: Path, max_documents: int):
+    if max_documents is None:
+        return
+    
+    documents_path = output_dir / DEFAULT_DOCUMENTS_PATH
+    queries_path = output_dir / DEFAULT_QUERIES_PATH
+
+    if not queries_path.exists() or not documents_path.exists():
+        return
+
+    relevant_docs_ids = set()
+    with open(queries_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                query_rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(query_rec, dict) and "relevant" in query_rec:
+                relevant_docs_ids.update(query_rec["relevant"])
+
+    relevant_docs = []
+    remaining_docs = []
+    with open(documents_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                document_rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if document_rec["id"] in relevant_docs_ids:
+                relevant_docs.append(document_rec)
+            else:
+                remaining_docs.append(document_rec)
+        
+        additional_nr_of_docs = max_documents - len(relevant_docs)
+        if additional_nr_of_docs > 0:
+            relevant_docs.extend(random.sample(remaining_docs, min(additional_nr_of_docs, len(remaining_docs))))
+    
+    with open(documents_path, "w", encoding="utf-8") as f:
+        for doc in relevant_docs:
+            f.write(json.dumps(doc, ensure_ascii=False) + "\n")
 
 
 def run_data_loaders(
@@ -112,7 +164,8 @@ def run_data_loaders(
             cache_dir=ds["cache_dir"],
             limit=ds["limit"],
             loader_kwargs=ds["loader_kwargs"],
-            overwrite=ds["overwrite"])
+            overwrite=ds["overwrite"],
+            max_documents=ds["max_documents"])
 
 
 def run_data_loader(
@@ -122,7 +175,8 @@ def run_data_loader(
     cache_dir: Optional[str],
     limit: Optional[int],
     loader_kwargs: Dict,
-    overwrite: bool) -> None:
+    overwrite: bool,
+    max_documents: Optional[int]) -> None:
     
     try:
         prepare_dataset(
@@ -133,6 +187,10 @@ def run_data_loader(
             limit=limit,
             loader_kwargs=loader_kwargs,
             overwrite=overwrite)
+        
+        if max_documents is not None:
+            limit_documents_in_corpus(Path(output_dir), max_documents)
+
     except Exception as exc:
         print(f"Dataset was not loaded for {dataset}: {str(exc)}")
 
@@ -187,8 +245,8 @@ def run_experiments(
             dataset_name = dataset["dataset"]
             output_dir = Path(dataset["output_dir"])
 
-            documents_path = output_dir / "documents" / "documents.jsonl"
-            queries_path = output_dir / "queries" / "queries.jsonl"
+            documents_path = output_dir / DEFAULT_DOCUMENTS_PATH
+            queries_path = output_dir / DEFAULT_QUERIES_PATH
             chunks_output_path = output_dir / "passages" / f"passages_{chunker_name}.jsonl"
 
             result = run_experiment(

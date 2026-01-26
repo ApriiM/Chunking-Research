@@ -7,31 +7,32 @@ datasets:
   #   output_dir    [Optional default: data/processed/{dataset}/]
   #   cache_dir     [Optional default: None]
   #   limit         [Optional default: None]
+  #   max_documents [Optional default: None]
   #   loader_kwargs [Optional default: {}]
   - dataset: fiqa2018
     split: test
     output_dir: data/processed/fiqa2018/
     cache_dir: data/hf_cache
+    limit: 100
+    max_documents: 500
   - dataset: gutenqa
     split: test
     output_dir: data/processed/gutenqa/
     cache_dir: data/hf_cache
+    limit: 100
+    max_documents: 500
   - dataset: nfcorpus
     split: test
     output_dir: data/processed/nfcorpus/
     cache_dir: data/hf_cache
-  - dataset: poquad
-    split: train
-    output_dir: data/processed/poquad/
-    cache_dir: data/hf_cache
+    limit: 100
+    max_documents: 500
   - dataset: scifact
     split: test
     output_dir: data/processed/scifact/
     cache_dir: data/hf_cache
-  - dataset: squad
-    split: train
-    output_dir: data/processed/squad/
-    cache_dir: data/hf_cache
+    limit: 100
+    max_documents: 500
 
 chunkers:
   - name: passage_spacy

@@ -1,0 +1,5 @@
+# Download/prepare all required datasets
+python -m src.data_loader.prepare_dataset --dataset poquad --split validation --output-dir data/processed/poquad/validation --overwrite
+python -m src.data_loader.prepare_dataset --dataset squad --split validation --output-dir data/processed/squad/validation --overwrite
+python -m src.data_loader.prepare_dataset --dataset scifact --split train --output-dir data/processed/scifact/train --overwrite
+python -m src.data_loader.prepare_dataset --dataset gutenqa_concat --split validation --output-dir data/processed/gutenqa_concat/validation --overwrite

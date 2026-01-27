@@ -1,0 +1,7 @@
+# Evaluate each fixed_size chunking run on SQuAD validation
+python -m src.eval_chunks --passages-meta data/processed/squad/validation/passages_all/fixed_150_30.meta.json --model-name jinaai/jina-embeddings-v2-small-en --batch-size 64 --output-path results/eval_chunks/squad_fixed_150_30.json --show-progress
+python -m src.eval_chunks --passages-meta data/processed/squad/validation/passages_all/fixed_150_0.meta.json --model-name jinaai/jina-embeddings-v2-small-en --batch-size 64 --output-path results/eval_chunks/squad_fixed_150_0.json --show-progress
+python -m src.eval_chunks --passages-meta data/processed/squad/validation/passages_all/fixed_300_40.meta.json --model-name jinaai/jina-embeddings-v2-small-en --batch-size 64 --output-path results/eval_chunks/squad_fixed_300_40.json --show-progress
+python -m src.eval_chunks --passages-meta data/processed/squad/validation/passages_all/fixed_300_0.meta.json --model-name jinaai/jina-embeddings-v2-small-en --batch-size 64 --output-path results/eval_chunks/squad_fixed_300_0.json --show-progress
+python -m src.eval_chunks --passages-meta data/processed/squad/validation/passages_all/fixed_512_64.meta.json --model-name jinaai/jina-embeddings-v2-small-en --batch-size 64 --output-path results/eval_chunks/squad_fixed_512_64.json --show-progress
+python -m src.eval_chunks --passages-meta data/processed/squad/validation/passages_all/fixed_512_0.meta.json --model-name jinaai/jina-embeddings-v2-small-en --batch-size 64 --output-path results/eval_chunks/squad_fixed_512_0.json --show-progress

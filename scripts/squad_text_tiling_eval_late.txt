@@ -1,0 +1,3 @@
+# Late-chunking evaluation for text_tiling runs on SQuAD validation
+python -m src.eval_chunks --passages-meta data/processed/squad/validation/passages_all/texttiling_default.meta.json --model-name jinaai/jina-embeddings-v2-small-en --batch-size 64 --late-chunking --late-docs-source passages --passage-separator "\n" --output-path results/eval_chunks/squad_texttiling_default_late.json --show-progress
+python -m src.eval_chunks --passages-meta data/processed/squad/validation/passages_all/texttiling_small.meta.json --model-name jinaai/jina-embeddings-v2-small-en --batch-size 64 --late-chunking --late-docs-source passages --passage-separator "\n" --output-path results/eval_chunks/squad_texttiling_small_late.json --show-progress

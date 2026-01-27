@@ -65,7 +65,7 @@
     "mrr_at_20": 0.6493814146678878,
     "main_score": 0.67611
   },
-  "generated_at": "2026-01-27T14:09:37.229711+00:00",
+  "generated_at": "2026-01-27T16:45:54.383146+00:00",
   "chunker_name": "fixed_size",
   "chunker_params": {
     "chunk_size": 512,

@@ -1,4 +1,5 @@
 import argparse
+import re
 import shlex
 import subprocess
 from pathlib import Path
@@ -21,8 +22,9 @@ def _load_commands(path: Path) -> List[str]:
 
 def run_commands(commands: List[str], keep_going: bool, use_shell: bool) -> None:
     for idx, cmd in enumerate(commands, start=1):
-        print(f"[{idx}/{len(commands)}] Running: {cmd}")
-        proc = subprocess.run(cmd if use_shell else shlex.split(cmd))
+        rewritten = _ensure_python3(cmd, use_shell)
+        print(f"[{idx}/{len(commands)}] Running: {rewritten}")
+        proc = subprocess.run(rewritten if use_shell else shlex.split(rewritten))
         if proc.returncode != 0:
             print(f"[{idx}/{len(commands)}] FAILED (exit {proc.returncode})")
             if not keep_going:
@@ -51,6 +53,18 @@ def parse_args():
         help="Run commands through the shell (needed if you use pipes/redirection).",
     )
     return parser.parse_args()
+
+
+def _ensure_python3(cmd: str, use_shell: bool) -> str:
+    """
+    Replace a leading 'python' command with 'python3' without touching 'python3' or paths.
+    Works for both shell and non-shell execution.
+    """
+    # quick exit if already using python3
+    if re.search(r"(^|\s)python3(\s|$)", cmd):
+        return cmd
+    # replace only leading standalone 'python' (allows leading whitespace)
+    return re.sub(r"^(\s*)python(\s|$)", r"\1python3\2", cmd, count=1)
 
 
 def main():

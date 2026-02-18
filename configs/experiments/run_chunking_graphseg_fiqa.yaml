@@ -1,0 +1,16 @@
+chunker:
+  name: graphseg
+  params:
+    tau: 0.25
+    min_segment_size: 3
+    embedding_path: data/graphseg/embeddings/glove.6B.zip
+    frequency_path: data/graphseg/frequencies/freqs.txt
+    stopwords_path: data/graphseg/resources/stopwords.txt
+    spacy_model: en_core_web_sm
+
+documents_path: data/fiqa2018/processed/documents/documents.jsonl
+
+output:
+  save_chunks: true
+  chunks_path: data/fiqa2018/processed/passages_all/passages_graphseg.jsonl
+  overwrite: true

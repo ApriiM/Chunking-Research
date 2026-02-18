@@ -7,26 +7,35 @@ from ..core.registry import chunker
 @chunker("fixed_size")
 class FixedSizeChunker(BaseChunker):
     '''
-    Splits text into fixed-size chunks with optional overlap.
+    Splits text into fixed-size character chunks with optional overlap.
+
+    Config options (merged with configs/chunkers/fixed_size.yaml defaults when using registry):
+        chunk_size (int): Number of characters per chunk; must be > 0.
+        overlap (int): Number of characters to overlap between chunks; 0 <= overlap < chunk_size.
     '''
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         '''
         Initialize FixedSizeChunker with chunk size and overlap from config.
 
-        :param config: Configuration dictionary with 'chunk_size' and 'overlap' keys
+        :param config: Configuration dictionary with:
+            - chunk_size: int, number of characters per chunk
+            - overlap: int, number of characters shared between adjacent chunks
         :type config: Optional[Dict[str, Any]]
         '''
         super().__init__(config)
         self.chunk_size: int = int(self.config["chunk_size"])
         self.overlap: int = int(self.config["overlap"])
 
+        # Validate to avoid degenerate or infinite windowing.
         if self.chunk_size <= 0:
             raise ValueError("chunk_size must be positive")
         if self.overlap < 0:
             raise ValueError("overlap must be non-negative")
         if self.overlap >= self.chunk_size:
             raise ValueError("overlap must be smaller than chunk_size to avoid infinite loops")
+        
+        # Step size for the sliding window; overlap reduces the step.
         self._step: int = self.chunk_size - self.overlap
 
     def split_text(
@@ -34,6 +43,7 @@ class FixedSizeChunker(BaseChunker):
         documents: List[str],
         documents_meta: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Chunk]:
+        # Ensure per-document metadata aligns with the input list.
         if documents_meta is not None and len(documents_meta) != len(documents):
             raise ValueError("documents_meta length must match documents length")
 
@@ -50,6 +60,7 @@ class FixedSizeChunker(BaseChunker):
         if not text:
             return []
 
+        # Slide a fixed-size window over the raw character string.
         chunks: List[Chunk] = []
         text_len = len(text)
         start = 0
@@ -58,6 +69,7 @@ class FixedSizeChunker(BaseChunker):
             end = min(start + self.chunk_size, text_len)
             chunk_text = text[start:end]
 
+            # Store character offsets so downstream tools can re-map spans.
             chunks.append(
                 Chunk(
                     text=chunk_text,
@@ -69,6 +81,7 @@ class FixedSizeChunker(BaseChunker):
                 )
             )
 
+            # Stop once we've emitted the tail chunk.
             if end == text_len:
                 break
 

@@ -1,5 +1,5 @@
 import hashlib
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 
 from datasets import load_dataset
 
@@ -52,36 +52,28 @@ def load_squad(
     for row in ds:
         if skip_impossible and row.get("is_impossible") is True:
             continue
+        
+        title = row.get("title")
+        if not title:
+            continue
 
         context = row.get("context") or ""
-        title = row.get("title")
 
         answers = row.get("answers") or {}
         answer_texts = list(answers.get("text", []) or [])
         answer_starts = list(answers.get("answer_start", []) or [])
 
-        if context not in context_to_doc:
-            digest = hashlib.md5(context.encode("utf-8")).hexdigest()[:12]
-            doc_id = f"squad-{digest}"
-            context_to_doc[context] = doc_id
+        if title not in context_to_doc.keys():
+            context_to_doc[title] = ""
 
-            doc_meta: Dict[str, object] = {}
-            if title:
-                doc_meta["title"] = title
+        context_start_id = context_to_doc[title].find(context)
+        if context_start_id == -1:
+            context_start_id = len(context_to_doc[title])
+            context_to_doc[title] += context
 
-            documents.append(
-                DocumentRecord(
-                    doc_id=doc_id,
-                    contents=context,
-                    metadata=doc_meta,
-                )
-            )
-        else:
-            doc_id = context_to_doc[context]
+        answer_starts = [start + context_start_id for start in answer_starts]
 
         query_meta: Dict[str, object] = {}
-        if title:
-            query_meta["title"] = title
         if answer_texts:
             query_meta["answers"] = answer_texts
         if answer_starts:
@@ -93,8 +85,17 @@ def load_squad(
             QueryRecord(
                 query_id=f"q.{row.get('id')}",
                 contents=row.get("question", "") or "",
-                relevant=[doc_id],
+                relevant=[title],
                 metadata=query_meta,
+            )
+        )
+
+    for title, context in context_to_doc.items():
+        documents.append(
+            DocumentRecord(
+                doc_id=title,
+                contents=context,
+                metadata={},
             )
         )
 

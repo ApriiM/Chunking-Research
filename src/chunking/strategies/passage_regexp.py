@@ -11,6 +11,10 @@ class RegexpPassageChunker(BaseChunker):
     """
     Groups text into passages of N sentences using a regex-based sentence splitter.
 
+    Config options (merged with configs/chunkers/passage_regexp.yaml defaults):
+        passage_length (int): Sentences per chunk; must be > 0. Setting passage_length=1 yields
+            one sentence per chunk (i.e., sentence-level segmentation).
+
     Registered as "passage_regexp"; the "passage" alias is kept for compatibility.
     """
 
@@ -18,13 +22,16 @@ class RegexpPassageChunker(BaseChunker):
         """
         Initialize RegexpPassageChunker with passage length from config.
 
-        :param config: Configuration dictionary with 'passage_length' key
+        :param config: Configuration dictionary with 'passage_length' (int, >0)
         :type config: Optional[Dict[str, Any]]
         """
+
         super().__init__(config)
         self.passage_length: int = int(self.config["passage_length"])
         if self.passage_length <= 0:
             raise ValueError("passage_length must be positive")
+        
+        # Split sentences on whitespace that follows ., !, or ?.
         self._splitter = re.compile(r"(?<=[.!?])\s+")
 
     def split_text(
@@ -32,6 +39,7 @@ class RegexpPassageChunker(BaseChunker):
         documents: List[str],
         documents_meta: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Chunk]:
+        # Ensure per-document metadata aligns with the input list.
         if documents_meta is not None and len(documents_meta) != len(documents):
             raise ValueError("documents_meta length must match documents length")
 
@@ -48,6 +56,7 @@ class RegexpPassageChunker(BaseChunker):
         if not text:
             return []
 
+        # Sentence tokenize first, then group into fixed-size passages.
         sentences = self._split_sentences(text)
         if not sentences:
             return []
@@ -74,11 +83,7 @@ class RegexpPassageChunker(BaseChunker):
     def _split_sentences(self, text: str) -> List[str]:
         """
         Split the input text into sentences using regex.
-
-        :param text: Input text to split into sentences
-        :type text: str
-        :return: List of sentences
-        :rtype: List[str]
         """
+        # Trim and drop empty segments after splitting.
         parts = self._splitter.split(text.strip()) if text else []
         return [p.strip() for p in parts if p.strip()]

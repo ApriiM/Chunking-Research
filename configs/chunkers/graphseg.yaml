@@ -1,0 +1,9 @@
+# Defaults aligned with graphseg-python examples.
+tau: 0.25
+min_segment_size: 3
+
+# External resources expected by graphseg-python.
+embedding_path: data/graphseg/embeddings/glove.6B.zip
+frequency_path: data/graphseg/frequencies/freqs.txt
+stopwords_path: data/graphseg/resources/stopwords.txt
+spacy_model: en_core_web_sm

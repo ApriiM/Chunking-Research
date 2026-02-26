@@ -4,6 +4,9 @@
 [submodule "submodules/lumberchunker"]
 	path = submodules/lumberchunker
 	url = https://github.com/joaodsmarques/LumberChunker.git
+[submodule "submodules/max_min_chunking"]
+	path = submodules/max_min_chunking
+	url = https://github.com/hsdslab/MaxMinChunking
 [submodule "submodules/graphseg_python"]
 	path = submodules/graphseg_python
 	url = https://github.com/ApriiM/graphseg-python.git

@@ -250,6 +250,7 @@ def load_novelqa(
     hf_repo: str = _DEFAULT_HF_REPO,
     # --- filtering ---
     book_ids: Optional[Sequence[str]] = None,
+    revision: Optional[str] = "",
 ) -> Tuple[List[DocumentRecord], List[QueryRecord]]:
     """Load the NovelQA benchmark into ``(documents, queries)``.
 

@@ -116,8 +116,7 @@ def _clone_repository(
         print(f"[novelqa] Removing existing repository at: {target_path}")
         shutil.rmtree(target_path)
 
-    token = hf_token or os.getenv("HF_TOKEN")
-    token = "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"
+    token = hf_token or os.getenv("HUGGINGFACE_HUB_TOKEN")
     if not token:
         raise EnvironmentError(
             "A Hugging Face token is required to clone NovelQA.\n"

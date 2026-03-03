@@ -116,11 +116,11 @@ def _clone_repository(
         print(f"[novelqa] Removing existing repository at: {target_path}")
         shutil.rmtree(target_path)
 
-    token = hf_token or os.getenv("HF_TOKEN")
+    token = hf_token or os.getenv("HUGGINGFACE_HUB_TOKEN") or os.getenv("HF_TOKEN")
     if not token:
         raise EnvironmentError(
             "A Hugging Face token is required to clone NovelQA.\n"
-            "Set the HF_TOKEN environment variable or pass hf_token= to the loader."
+            "Set HUGGINGFACE_HUB_TOKEN or HF_TOKEN, or pass hf_token= to the loader."
         )
 
     repo_url = f"https://huggingface.co/datasets/{hf_repo}"
@@ -255,6 +255,7 @@ def load_novelqa(
     hf_repo: str = _DEFAULT_HF_REPO,
     # --- filtering ---
     book_ids: Optional[Sequence[str]] = None,
+    revision: Optional[str] = "",
 ) -> Tuple[List[DocumentRecord], List[QueryRecord]]:
     """Load the NovelQA benchmark into ``(documents, queries)``.
 

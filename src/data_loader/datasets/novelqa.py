@@ -117,18 +117,23 @@ def _clone_repository(
         shutil.rmtree(target_path)
 
     token = hf_token or os.getenv("HF_TOKEN")
-    token = "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"
     if not token:
         raise EnvironmentError(
             "A Hugging Face token is required to clone NovelQA.\n"
             "Set the HF_TOKEN environment variable or pass hf_token= to the loader."
         )
 
-    # Build authenticated git URL.
-    repo_url = f"https://user:{token}@huggingface.co/datasets/{hf_repo}"
+    repo_url = f"https://huggingface.co/datasets/{hf_repo}"
     print(f"[novelqa] Cloning {hf_repo} → {target_path} …")
     subprocess.run(
-        ["git", "clone", repo_url, str(target_path)],
+        [
+            "git",
+            "-c",
+            f"http.extraHeader=Authorization: Bearer {token}",
+            "clone",
+            repo_url,
+            str(target_path),
+        ],
         check=True,
     )
     print("[novelqa] Clone finished.")

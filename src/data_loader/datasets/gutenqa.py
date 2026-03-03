@@ -48,7 +48,7 @@ def load_gutenqa(
     )
     
     for row in ds_paragraphs:
-        doc_id = f"gutenqa_doc_{row.get("Book ID")}_{row.get("Chunk ID")}"
+        doc_id = f"gutenqa_doc_{row.get('Book ID')}_{row.get('Chunk ID')}"
         doc_meta: Dict[str, object] = {}
         doc_meta["Book Name"] = row.get("Book Name")
         doc_meta["Book Chapter"] = row.get("Chapter")
@@ -78,7 +78,7 @@ def load_gutenqa(
     ds_questions = ds_questions.select(range(min(limit, len(ds_questions)))) if limit is not None else ds_questions
 
     for idx, row in enumerate(ds_questions):
-        relevant_doc_id = f"gutenqa_doc_{row.get("Book ID")}_{row.get("Chunk ID")}"
+        relevant_doc_id = f"gutenqa_doc_{row.get('Book ID')}_{row.get('Chunk ID')}"
 
         if any(doc.doc_id == relevant_doc_id for doc in documents):
             query_meta: Dict[str, object] = {}
@@ -96,5 +96,4 @@ def load_gutenqa(
     
     return documents, queries
     
-
 

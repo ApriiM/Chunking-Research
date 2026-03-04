@@ -1,7 +1,10 @@
 pyyaml>=6.0
 numpy>=1.24.4
 nltk>=3.8.1
-datasets>=2.14.0
+datasets==3.6.0
+chardet==5.2.0
+beautifulsoup4[html5lib]==4.14.2
+ftfy==6.3.1
 pyarrow>=14.0.0
 jupyter>=1.0.0
 ipykernel>=6.25.0
@@ -17,7 +20,6 @@ jupyterlab>=4.2.5
 transformers>=4.43.4
 torch>=2.4.0
 mteb==1.14.20
-datasets>=2.19.1
 llama-index-embeddings-huggingface>=0.3.1
 llama-index>=0.11.10
 click>=8.1.7

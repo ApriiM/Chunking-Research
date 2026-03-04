@@ -1,10 +1,22 @@
-from typing import Callable, Dict, List, Type
+import importlib
+from typing import Dict, List, Type
 
 from .base import BaseChunker
 from .defaults import merge_with_defaults
 
 ChunkerFactory = Type[BaseChunker]
 _CHUNKER_REGISTRY: Dict[str, ChunkerFactory] = {}
+_BUILTIN_CHUNKERS_LOADED = False
+
+
+def _ensure_builtin_chunkers_loaded() -> None:
+    global _BUILTIN_CHUNKERS_LOADED
+
+    if _BUILTIN_CHUNKERS_LOADED:
+        return
+
+    importlib.import_module("src.chunking.strategies")
+    _BUILTIN_CHUNKERS_LOADED = True
 
 
 def register_chunker(name: str, chunker_cls: ChunkerFactory) -> None:
@@ -24,10 +36,12 @@ def chunker(name: str):
 
 
 def list_chunkers() -> List[str]:
+    _ensure_builtin_chunkers_loaded()
     return list(_CHUNKER_REGISTRY.keys())
 
 
 def get_chunker(name: str, config: Dict) -> BaseChunker:
+    _ensure_builtin_chunkers_loaded()
     if name not in _CHUNKER_REGISTRY:
         raise ValueError(f"Chunker '{name}' not found. Available: {list_chunkers()}")
     chunker_cls = _CHUNKER_REGISTRY[name]

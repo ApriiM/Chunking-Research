@@ -215,6 +215,7 @@ def load_beir_nq_wiki_articles(
     wikipedia_sleep_seconds: float = 0.0,
     wikipedia_use_cache: bool = True,
     wikipedia_retries: int = 2,
+    skip_wikipedia_fetch: bool = False,
     # Evidence options (BEIR has relevance labels + passages, not gold QA answers)
     max_evidence_passages_per_query: int = 0,  # 0 => keep ALL
     # If scraping fails, optionally build "article" by concatenating BEIR passages for that title:
@@ -355,34 +356,40 @@ def load_beir_nq_wiki_articles(
     documents: List[DocumentRecord] = []
 
     for title in _progress_iter(sorted(needed_titles), enabled=show_progress, desc="Fetching Wikipedia articles"):
-        article_text = _fetch_wikipedia_article_text(
-            title,
-            cache_dir=wikipedia_cache_dir,
-            language=wikipedia_language,
-            user_agent=wikipedia_user_agent,
-            timeout_seconds=wikipedia_timeout_seconds,
-            sleep_seconds=wikipedia_sleep_seconds,
-            use_cache=wikipedia_use_cache,
-            retries=wikipedia_retries,
-        )
-
         source = "wikipedia_api_parse"
-        if not article_text and fallback_to_beir_passage_concat:
-            # Guaranteed to be consistent with the BEIR corpus, but not a real full wiki page.
-            article_text = "\n\n".join(title_to_passages.get(title, []))
-            source = "beir_passage_concat"
+        article_text = ""
 
-        if not article_text:
-            continue
+        if skip_wikipedia_fetch:
+            source = "blank_stub"
+        else:
+            article_text = _fetch_wikipedia_article_text(
+                title,
+                cache_dir=wikipedia_cache_dir,
+                language=wikipedia_language,
+                user_agent=wikipedia_user_agent,
+                timeout_seconds=wikipedia_timeout_seconds,
+                sleep_seconds=wikipedia_sleep_seconds,
+                use_cache=wikipedia_use_cache,
+                retries=wikipedia_retries,
+            )
+
+            if not article_text and fallback_to_beir_passage_concat:
+                # Guaranteed to be consistent with the BEIR corpus, but not a real full wiki page.
+                article_text = "\n\n".join(title_to_passages.get(title, []))
+                source = "beir_passage_concat"
+
+            if not article_text:
+                continue
 
         digest = hashlib.md5(title.encode("utf-8")).hexdigest()[:16]
         doc_id = f"{doc_id_prefix}{digest}"
         title_to_doc_id[title] = doc_id
 
+        contents = "" if skip_wikipedia_fetch else f"{title}\n\n{article_text}".strip()
         documents.append(
             DocumentRecord(
                 doc_id=doc_id,
-                contents=f"{title}\n\n{article_text}".strip(),
+                contents=contents,
                 metadata={
                     "dataset": "beir_nq",
                     "title": title,

@@ -1,10 +1,15 @@
 import hashlib
+import random
 from typing import Dict, List, Optional, Tuple, Set
 
 from datasets import load_dataset
 
 from src.data_loader.core.registry import dataset
 from src.data_loader.core.schemas import DocumentRecord, QueryRecord
+
+
+_TRAIN_QUERY_SAMPLE_SIZE = 10_000
+_TRAIN_QUERY_SAMPLE_SEED = 42
 
 
 @dataset("squad")
@@ -39,9 +44,6 @@ def load_squad(
         load_kwargs["name"] = config_name
 
     ds = load_dataset(**load_kwargs)
-
-    if limit is not None:
-        ds = ds.select(range(min(limit, len(ds))))
 
     documents: List[DocumentRecord] = []
     queries: List[QueryRecord] = []
@@ -98,5 +100,13 @@ def load_squad(
                 metadata={},
             )
         )
+
+    if split == "train" and len(queries) > _TRAIN_QUERY_SAMPLE_SIZE:
+        rng = random.Random(_TRAIN_QUERY_SAMPLE_SEED)
+        sampled_indices = sorted(rng.sample(range(len(queries)), _TRAIN_QUERY_SAMPLE_SIZE))
+        queries = [queries[i] for i in sampled_indices]
+
+    if limit is not None:
+        queries = queries[: min(limit, len(queries))]
 
     return documents, queries

@@ -1,11 +1,11 @@
 from typing import List, Dict, Any, Optional
 import numpy as np
 from scipy.sparse import diags
-from tqdm import tqdm
 from nltk.tokenize import sent_tokenize
 from sklearn.cluster import AgglomerativeClustering
 from sentence_transformers import SentenceTransformer
 from ..core.base import BaseChunker, Chunk
+from ..core.progress import coerce_progress_enabled, iter_with_progress
 from ..core.registry import chunker
 
 @chunker("sequential_hac_chunker")
@@ -41,9 +41,12 @@ class SequentialHACChunker(BaseChunker):
         if documents_meta is not None and len(documents_meta) != len(documents):
             raise ValueError("documents_meta length must match documents length")
 
+        show_progress = coerce_progress_enabled(self.config.get("show_progress"), default=True)
         all_chunks: List[Chunk] = []
         
-        for idx, text in enumerate(tqdm(documents, desc="Sequential HAC Chunking")):
+        for idx, text in enumerate(
+            iter_with_progress(documents, desc="Sequential HAC Chunking", enabled=show_progress)
+        ):
             meta = documents_meta[idx] if documents_meta is not None else None
             all_chunks.extend(self._split_single(text, meta))
 

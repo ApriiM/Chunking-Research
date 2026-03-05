@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional
 
 from ..core.base import BaseChunker, Chunk
+from ..core.progress import coerce_progress_enabled, iter_with_progress
 from ..core.registry import chunker
 
 
@@ -74,8 +75,11 @@ class SpacyPassageChunker(BaseChunker):
         # Lazy-load spaCy pipeline only when chunking is invoked.
         self._load_nlp()
 
+        show_progress = coerce_progress_enabled(self.config.get("show_progress"), default=True)
         all_chunks: List[Chunk] = []
-        for idx, text in enumerate(documents):
+        for idx, text in enumerate(
+            iter_with_progress(documents, desc="PassageSpaCy Chunking", enabled=show_progress)
+        ):
             meta = documents_meta[idx] if documents_meta is not None else None
             all_chunks.extend(self._split_single(text, meta))
         return all_chunks

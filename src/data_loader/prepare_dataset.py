@@ -1,11 +1,19 @@
 import argparse
 import os
-from typing import Dict, Optional
+from typing import Dict, Iterable, Optional
 
 import yaml
 
 from src.data_loader.core.registry import get_dataset_loader
+from src.data_loader.core.schemas import QueryRecord
 from src.data_loader.core.schemas import save_document_records_jsonl, save_query_records_jsonl
+
+
+ANSWER_KEY_COVERAGE_THRESHOLD = 0.8
+UNIFIED_ANSWER_KEYS = (
+    "extractive_span_text_answer",
+    "free_text_answer",
+)
 
 
 def _parse_loader_kwargs(raw: str) -> Dict:
@@ -17,6 +25,49 @@ def _parse_loader_kwargs(raw: str) -> Dict:
     if not isinstance(parsed, dict):
         raise ValueError("loader_kwargs must decode to a mapping")
     return parsed
+
+
+def _has_nonempty_values(values: object) -> bool:
+    if values is None:
+        return False
+    if isinstance(values, str):
+        return bool(values)
+    if isinstance(values, Iterable):
+        for value in values:
+            if value is None:
+                continue
+            if isinstance(value, str):
+                if value:
+                    return True
+                continue
+            return True
+        return False
+    return True
+
+
+def _normalize_query_answer_metadata(queries: list[QueryRecord]) -> list[QueryRecord]:
+    if not queries:
+        return queries
+
+    qualifying_keys = []
+    total_queries = len(queries)
+    for key in UNIFIED_ANSWER_KEYS:
+        count = sum(1 for query in queries if _has_nonempty_values(query.metadata.get(key)))
+        if (count / total_queries) >= ANSWER_KEY_COVERAGE_THRESHOLD:
+            qualifying_keys.append(key)
+            continue
+        for query in queries:
+            query.metadata.pop(key, None)
+
+    if not qualifying_keys:
+        return queries
+
+    filtered = [
+        query
+        for query in queries
+        if all(_has_nonempty_values(query.metadata.get(key)) for key in qualifying_keys)
+    ]
+    return filtered
 
 def prepare_dataset(
     dataset: str,
@@ -30,6 +81,8 @@ def prepare_dataset(
 
     loader = get_dataset_loader(dataset)
     documents, queries = loader(split=split, cache_dir=cache_dir, limit=limit, **loader_kwargs)
+    original_query_count = len(queries)
+    queries = _normalize_query_answer_metadata(queries)
 
     documents_dir = os.path.join(output_dir, "documents")
     queries_dir = os.path.join(output_dir, "queries")
@@ -49,6 +102,11 @@ def prepare_dataset(
     save_query_records_jsonl(queries, queries_path)
     print(f"Wrote {len(documents)} documents to {documents_path}")
     print(f"Wrote {len(queries)} queries to {queries_path}")
+    if len(queries) != original_query_count:
+        print(
+            f"Filtered queries by unified answer coverage policy: "
+            f"{original_query_count} -> {len(queries)}"
+        )
 
 
 def parse_args():

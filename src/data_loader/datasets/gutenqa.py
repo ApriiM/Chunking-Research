@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Tuple
 from datasets import load_dataset
+from src.data_loader.datasets._answer_utils import build_unified_answer_metadata, split_text_answers
 from src.data_loader.core.registry import dataset
 from src.data_loader.core.schemas import DocumentRecord, QueryRecord
 
@@ -38,6 +39,7 @@ def load_gutenqa(
     
     documents: List[DocumentRecord] = []
     queries: List[QueryRecord] = []
+    doc_contents_by_id: Dict[str, str] = {}
 
     ds_paragraphs = load_dataset(
         path=dataset_name,
@@ -60,6 +62,7 @@ def load_gutenqa(
                 metadata=doc_meta
             )
         )
+        doc_contents_by_id[doc_id] = row.get("Chunk") or ""
     
     _, slice_obj = _split_base_and_slice(split)
 
@@ -80,9 +83,17 @@ def load_gutenqa(
     for idx, row in enumerate(ds_questions):
         relevant_doc_id = f"gutenqa_doc_{row.get('Book ID')}_{row.get('Chunk ID')}"
 
-        if any(doc.doc_id == relevant_doc_id for doc in documents):
-            query_meta: Dict[str, object] = {}
-            query_meta["Answer"] = row.get("Answer")
+        if relevant_doc_id in doc_contents_by_id:
+            answer = row.get("Answer")
+            extractive_answers, free_text_answers = split_text_answers(
+                doc_contents_by_id[relevant_doc_id],
+                [answer],
+            )
+            query_meta = build_unified_answer_metadata(
+                base_metadata={"Answer": answer},
+                extractive_answers=extractive_answers,
+                free_text_answers=free_text_answers,
+            )
             queries.append(
                 QueryRecord(
                     query_id=f"q.{idx + 1}",
@@ -96,4 +107,3 @@ def load_gutenqa(
     
     return documents, queries
     
-

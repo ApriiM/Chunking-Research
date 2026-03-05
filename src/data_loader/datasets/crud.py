@@ -8,6 +8,7 @@ import urllib.request
 import zipfile
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from src.data_loader.datasets._answer_utils import build_unified_answer_metadata, split_text_answers
 from src.data_loader.core.registry import dataset
 from src.data_loader.core.schemas import DocumentRecord, QueryRecord
 
@@ -368,23 +369,31 @@ def load_crud(
 
         answer = row.get("answers")
         raw_metadata = {k: v for k, v in row.items() if k not in {"questions", "answers"}}
+        relevant_doc_text = "\n\n".join(
+            doc_id_to_contents[doc_id] for doc_id in relevant_doc_ids if doc_id in doc_id_to_contents
+        )
+        extractive_answers, free_text_answers = split_text_answers(relevant_doc_text, [answer])
 
         queries.append(
             QueryRecord(
                 query_id=f"q.crud.{task_key}.{row_id}.r{row_idx}",
                 contents=question,
                 relevant=relevant_doc_ids,
-                metadata={
-                    "dataset": "crud",
-                    "answer": answer,
-                    "original_task_key": task_key,
-                    "original_task_name": task_name,
-                    "source_task_key": task_key,
-                    "source_task_name": task_name,
-                    "source_id": row_id,
-                    "source_index": row_idx,
-                    "raw_metadata": raw_metadata,
-                },
+                metadata=build_unified_answer_metadata(
+                    base_metadata={
+                        "dataset": "crud",
+                        "answer": answer,
+                        "original_task_key": task_key,
+                        "original_task_name": task_name,
+                        "source_task_key": task_key,
+                        "source_task_name": task_name,
+                        "source_id": row_id,
+                        "source_index": row_idx,
+                        "raw_metadata": raw_metadata,
+                    },
+                    extractive_answers=extractive_answers,
+                    free_text_answers=free_text_answers,
+                ),
             )
         )
 

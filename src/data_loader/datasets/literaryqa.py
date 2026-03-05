@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Tuple
 import datasets as hf_datasets
 from datasets import load_dataset
 
+from src.data_loader.datasets._answer_utils import build_unified_answer_metadata, split_text_answers
 from src.data_loader.core.registry import dataset
 from src.data_loader.core.schemas import DocumentRecord, QueryRecord
 
@@ -164,20 +165,28 @@ def load_literaryqa(
             if not question:
                 continue
 
-            query_metadata: Dict[str, object] = {
+            extractive_answers, free_text_answers = split_text_answers(book_text, answers)
+
+            query_metadata_base: Dict[str, object] = {
                 "dataset": "literaryqa",
                 "document_id": document_id,
             }
             if gutenberg_id:
-                query_metadata["gutenberg_id"] = gutenberg_id
+                query_metadata_base["gutenberg_id"] = gutenberg_id
             if title:
-                query_metadata["title"] = title
+                query_metadata_base["title"] = title
             if answers:
-                query_metadata["answers"] = answers
+                query_metadata_base["answers"] = answers
             if "is_question_modified" in qa:
-                query_metadata["is_question_modified"] = qa.get("is_question_modified")
+                query_metadata_base["is_question_modified"] = qa.get("is_question_modified")
             if "is_answer_modified" in qa:
-                query_metadata["is_answer_modified"] = qa.get("is_answer_modified")
+                query_metadata_base["is_answer_modified"] = qa.get("is_answer_modified")
+
+            query_metadata = build_unified_answer_metadata(
+                base_metadata=query_metadata_base,
+                extractive_answers=extractive_answers,
+                free_text_answers=free_text_answers,
+            )
 
             queries.append(
                 QueryRecord(

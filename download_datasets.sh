@@ -65,7 +65,7 @@ run_prepare() {
 
 log_literaryqa_requirements() {
   log "LiteraryQA requires a dedicated Python >= 3.12 environment."
-  log "Recommended install: pip install \"datasets==3.6.0\" \"chardet==5.2.0\" \"beautifulsoup4[html5lib]==4.14.2\" \"ftfy==6.3.1\""
+  log "Recommended install: .venv-literaryqa/bin/pip install -r requirements-literaryqa.txt"
   log "Set PYTHON_BIN_LITERARYQA to that venv's python if it differs from PYTHON_BIN."
 }
 
@@ -74,7 +74,7 @@ log "Using python for LiteraryQA: $("$PYTHON_BIN_LITERARYQA" -c 'import sys; pri
 log "Cache dir: $CACHE_DIR"
 log "Output base: $OUTPUT_BASE"
 log "FORCE=$FORCE"
-log "Datasets: natural_questions/validation, novelqa/public, novelqa/copyright, poquad/train, poquad/validation, squad/train, squad/validation, triviaqa_span_annotated/train_artificial, triviaqa_span_annotated/test_artificial, literaryqa/train, literaryqa/validation, literaryqa/test"
+log "Datasets: natural_questions/validation, novelqa/public, novelqa/copyright, poquad/train, poquad/validation, squad/train, squad/validation, triviaqa_span_annotated/train_artificial, triviaqa_span_annotated/test_artificial, gutenqa/all, gutenqa_concat/all, literaryqa/train, literaryqa/validation, literaryqa/test, qasper/train, qasper/validation, qasper/test"
 log_literaryqa_requirements
 
 run_prepare "natural_questions" "validation"
@@ -86,8 +86,13 @@ run_prepare "squad" "train"
 run_prepare "squad" "validation"
 run_prepare "triviaqa_span_annotated" "train_artificial"
 run_prepare "triviaqa_span_annotated" "test_artificial"
+run_prepare "gutenqa" "all"
+run_prepare "gutenqa_concat" "all"
 run_prepare "literaryqa" "train" "" "$PYTHON_BIN_LITERARYQA"
 run_prepare "literaryqa" "validation" "" "$PYTHON_BIN_LITERARYQA"
 run_prepare "literaryqa" "test" "" "$PYTHON_BIN_LITERARYQA"
+run_prepare "qasper" "train"
+run_prepare "qasper" "validation"
+run_prepare "qasper" "test"
 
 log "Dataset download run complete."

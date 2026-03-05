@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from datasets import load_dataset
 
+from src.data_loader.datasets._answer_utils import build_unified_answer_metadata, extract_span_texts
 from src.data_loader.core.registry import dataset
 from src.data_loader.core.schemas import DocumentRecord, QueryRecord
 
@@ -111,6 +112,7 @@ def _build_query_record(
     query_suffix: str,
     query_text: str,
     doc_id: str,
+    document_text: str,
     spans: Any,
 ) -> QueryRecord:
     raw_spans, span_offsets = _normalize_spans(spans)
@@ -118,12 +120,15 @@ def _build_query_record(
         query_id=f"q.triviaqa-span-annotated.{query_suffix}",
         contents=query_text,
         relevant=[doc_id],
-        metadata={
-            "dataset": "triviaqa-span-annotated",
-            "spans": raw_spans,
-            "span_offsets": span_offsets,
-            "span_format": "char_offsets_[start,end)",
-        },
+        metadata=build_unified_answer_metadata(
+            base_metadata={
+                "dataset": "triviaqa-span-annotated",
+                "spans": raw_spans,
+                "span_offsets": span_offsets,
+                "span_format": "char_offsets_[start,end)",
+            },
+            extractive_answers=extract_span_texts(document_text, span_offsets),
+        ),
     )
 
 
@@ -249,6 +254,7 @@ def _load_artificial_split(
             query_suffix=item["query_suffix"],
             query_text=item["query_text"],
             doc_id=item["doc_id"],
+            document_text=item["document_text"],
             spans=item["spans"],
         )
         for item in query_candidates
@@ -378,6 +384,7 @@ def load_triviaqa_span_annotated(
                 query_suffix=query_suffix,
                 query_text=query_text,
                 doc_id=doc_id,
+                document_text=document_text,
                 spans=row.get("spans"),
             )
         )

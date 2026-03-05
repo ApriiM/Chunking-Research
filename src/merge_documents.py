@@ -90,3 +90,67 @@ class DocumentMerger:
             remapped_queries.append(new_q)
 
         return merged_documents_output, remapped_queries
+
+
+
+### CLI Utilities
+
+def _load_jsonl(path: str) -> List[Dict[str, Any]]:
+    records: List[Dict[str, Any]] = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                records.append(json.loads(line))
+    return records
+
+
+def _save_jsonl(records: List[Dict[str, Any]], path: str, overwrite: bool = False) -> None:
+    import os
+
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    if os.path.exists(path) and not overwrite:
+        raise FileExistsError(f"Refusing to overwrite existing file: {path}")
+    with open(path, "w", encoding="utf-8") as f:
+        for row in records:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def _parse_args():
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Merge documents into one synthetic document and remap query relevance."
+    )
+    parser.add_argument("--documents-path", required=True, help="Input documents JSONL path")
+    parser.add_argument("--queries-path", required=True, help="Input queries JSONL path")
+    parser.add_argument("--output-documents-path", required=True, help="Output merged documents JSONL path")
+    parser.add_argument("--output-queries-path", required=True, help="Output remapped queries JSONL path")
+    parser.add_argument("--seed", type=int, default=14, help="Random seed for document shuffle")
+    parser.add_argument("--separator", default="\n\n", help="Text separator inserted between merged documents")
+    parser.add_argument("--overwrite", action="store_true", help="Allow overwriting output files")
+    return parser.parse_args()
+
+
+def _run_cli() -> None:
+    args = _parse_args()
+    documents = _load_jsonl(args.documents_path)
+    queries = _load_jsonl(args.queries_path)
+
+    # Keep original merge logic unchanged; normalize missing metadata before calling it.
+    for q in queries:
+        if not isinstance(q.get("metadata"), dict):
+            q["metadata"] = {}
+
+    merger = DocumentMerger(seed=args.seed, separator=args.separator)
+    merged_documents, remapped_queries = merger.merge_dataset(documents, queries)
+
+    _save_jsonl(merged_documents, args.output_documents_path, overwrite=args.overwrite)
+    _save_jsonl(remapped_queries, args.output_queries_path, overwrite=args.overwrite)
+
+    print(f"[Merger] Wrote {len(merged_documents)} merged documents to {args.output_documents_path}")
+    print(f"[Merger] Wrote {len(remapped_queries)} remapped queries to {args.output_queries_path}")
+
+
+if __name__ == "__main__":
+    _run_cli()

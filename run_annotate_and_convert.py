@@ -66,10 +66,20 @@ def main() -> None:
             print(f"- {failure.source_run_dir}")
             print(f"  reason: {failure.reason}")
 
+    if summary.extractive_not_found_ids:
+        print("\nExtractive queries with no matching passage:")
+        for query_id in summary.extractive_not_found_ids:
+            print(f"- {query_id}")
+
     reason_counter = Counter(f.reason for f in summary.failures)
     print("\nSummary:")
     print(f"- successfully converted: {success_count}")
     print(f"- failed: {failed_count}")
+    print(f"- extractive queries processed: {summary.extractive_query_count}")
+    print(
+        "- extractive queries without matching passage: "
+        f"{len(summary.extractive_not_found_ids)}"
+    )
     if reason_counter:
         print("- failure reasons:")
         for reason, count in reason_counter.items():

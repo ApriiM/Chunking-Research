@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from datetime import datetime, timezone
+from time import perf_counter
 from typing import Dict, List
 
 import yaml
@@ -32,6 +33,7 @@ def chunk_documents(
     output_path: str,
     overwrite: bool,
 ) -> None:
+    total_start = perf_counter()
     documents = load_document_records_jsonl(documents_path)
     chunker = get_chunker(chunker_name, chunker_params)
 
@@ -39,7 +41,11 @@ def chunk_documents(
     document_texts = [doc.contents for doc in documents]
     documents_meta = [{"doc_id": doc.doc_id, **(doc.metadata or {})} for doc in documents]
 
-    for chunk in chunker.split_text(document_texts, documents_meta=documents_meta):
+    chunking_start = perf_counter()
+    chunks = chunker.split_text(document_texts, documents_meta=documents_meta)
+    chunking_seconds = perf_counter() - chunking_start
+
+    for chunk in chunks:
         metadata = dict(chunk.metadata or {})
         doc_id = metadata.get("doc_id")
         passages.append(
@@ -66,11 +72,14 @@ def chunk_documents(
             "overwrite": overwrite,
             "document_count": len(documents),
             "chunk_count": len(passages),
+            "chunking_seconds": chunking_seconds,
+            "total_runtime_seconds": perf_counter() - total_start,
             "generated_at": datetime.now(timezone.utc).isoformat(),
         },
     )
     print(f"Wrote {len(passages)} passages to {final_output}")
     print(f"Wrote metadata to {meta_path}")
+    print(f"Chunking runtime: {chunking_seconds:.3f}s")
 
 
 def parse_args():

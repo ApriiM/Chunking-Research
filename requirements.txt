@@ -16,6 +16,9 @@ scipy
 jupyterlab>=4.2.5
 transformers>=4.43.4
 torch>=2.4.0
+accelerate>=0.30.0
+openai>=1.40.0
+google-generativeai>=0.8.0
 mteb==1.14.20
 llama-index-embeddings-huggingface>=0.3.1
 llama-index>=0.11.10

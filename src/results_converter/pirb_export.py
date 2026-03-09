@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, List, Optional, Sequence
+from typing import Callable, Iterable, Iterator, List, Optional, Sequence
 
 
 REQUIRED_RUN_FILES: Sequence[str] = (
@@ -109,6 +110,111 @@ def _copy_file(src: Path, dst: Path) -> None:
     shutil.copy2(src, dst)
 
 
+def _iter_jsonl(path: Path) -> Iterator[dict]:
+    with path.open("r", encoding="utf-8") as f:
+        for raw in f:
+            raw = raw.strip()
+            if not raw:
+                continue
+            yield json.loads(raw)
+
+
+def _dedupe_preserve_order(values: Sequence[str]) -> List[str]:
+    seen = set()
+    out: List[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+    return out
+
+
+def _to_str_list(value: object) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(x) for x in value]
+    if isinstance(value, tuple):
+        return [str(x) for x in value]
+    return [str(value)]
+
+
+def _convert_passages(
+    src_passages: Path,
+    dst_passages: Path,
+) -> dict[str, List[str]]:
+    doc_to_passages: dict[str, List[str]] = {}
+    dst_passages.parent.mkdir(parents=True, exist_ok=True)
+
+    with dst_passages.open("w", encoding="utf-8") as out_f:
+        for idx, row in enumerate(_iter_jsonl(src_passages)):
+            # Normalize exported passage IDs to contiguous ascending strings.
+            pid = str(idx)
+            contents = str(
+                row.get("contents")
+                or row.get("text")
+                or row.get("content")
+                or ""
+            )
+            parent_id = str(
+                row.get("parentId")
+                or row.get("parent_id")
+                or row.get("document_id")
+                or row.get("doc_id")
+                or ""
+            )
+
+            converted_row = {
+                "id": pid,
+                "contents": contents,
+            }
+            out_f.write(json.dumps(converted_row, ensure_ascii=False) + "\n")
+            if parent_id:
+                doc_to_passages.setdefault(parent_id, []).append(pid)
+
+    return doc_to_passages
+
+
+def _convert_queries(
+    src_queries: Path,
+    dst_queries: Path,
+    *,
+    doc_to_passages: dict[str, List[str]],
+) -> None:
+    dst_queries.parent.mkdir(parents=True, exist_ok=True)
+    with dst_queries.open("w", encoding="utf-8") as out_f:
+        for idx, row in enumerate(_iter_jsonl(src_queries)):
+            qid = str(row.get("id") or row.get("query_id") or idx)
+            contents = str(
+                row.get("contents")
+                or row.get("query")
+                or row.get("text")
+                or row.get("question")
+                or ""
+            )
+            relevant = _to_str_list(row.get("relevant"))
+            metadata = row.get("metadata") or row.get("meta") or {}
+            has_extractive = (
+                (isinstance(metadata, dict) and ("extractive_span_text_answer" in metadata))
+                or ("extractive_span_text_answer" in row)
+            )
+
+            if not has_extractive:
+                expanded: List[str] = []
+                for doc_id in relevant:
+                    expanded.extend(doc_to_passages.get(doc_id, []))
+                relevant = _dedupe_preserve_order(expanded)
+
+            converted_row = {
+                "id": qid,
+                "contents": contents,
+                "relevant": relevant,
+                "relevant_scores": [1] * len(relevant),
+            }
+            out_f.write(json.dumps(converted_row, ensure_ascii=False) + "\n")
+
+
 def export_runs_to_pirb(
     input_path: Path,
     output_root: Path,
@@ -125,7 +231,10 @@ def export_runs_to_pirb(
     results: List[RunExportResult] = []
     failures: List[RunExportFailure] = []
 
-    for run_dir in run_dirs:
+    total_runs = len(run_dirs)
+    for idx, run_dir in enumerate(run_dirs, start=1):
+        if log_fn:
+            log_fn(f"[RUN {idx}/{total_runs}] processing {run_dir}")
         missing = _missing_required_files(run_dir)
         if missing:
             reason = "missing required file(s): " + ", ".join(missing)
@@ -150,16 +259,27 @@ def export_runs_to_pirb(
             _copy_file(src_metadata, dst_metadata)
             copied.append(dst_metadata)
 
-            # Copy passages under passages/.
+            # Convert passages under passages/.
             src_passages = run_dir / "passages.jsonl"
             dst_passages = target_run_dir / "passages" / "passages.jsonl"
-            _copy_file(src_passages, dst_passages)
+            if log_fn:
+                log_fn("  - converting passages.jsonl")
+            doc_to_passages = _convert_passages(
+                src_passages,
+                dst_passages,
+            )
             copied.append(dst_passages)
 
-            # Copy queries under queries/.
+            # Convert queries under queries/.
             src_queries = run_dir / "queries" / "queries.jsonl"
             dst_queries = target_run_dir / "queries" / "queries.jsonl"
-            _copy_file(src_queries, dst_queries)
+            if log_fn:
+                log_fn("  - converting queries/queries.jsonl")
+            _convert_queries(
+                src_queries,
+                dst_queries,
+                doc_to_passages=doc_to_passages,
+            )
             copied.append(dst_queries)
 
             results.append(
@@ -169,6 +289,8 @@ def export_runs_to_pirb(
                     copied_files=copied,
                 )
             )
+            if log_fn:
+                log_fn(f"  -> OK {target_run_dir}")
         except Exception as exc:
             reason = f"copy failed: {type(exc).__name__}: {exc}"
             failures.append(RunExportFailure(source_run_dir=run_dir, reason=reason))

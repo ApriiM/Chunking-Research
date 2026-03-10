@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional
 
 from ..core.base import BaseChunker, Chunk
+from ..core.progress import coerce_progress_enabled, iter_with_progress
 from ..core.registry import chunker
 
 
@@ -47,44 +48,51 @@ class FixedSizeChunker(BaseChunker):
         if documents_meta is not None and len(documents_meta) != len(documents):
             raise ValueError("documents_meta length must match documents length")
 
+        show_progress = coerce_progress_enabled(self.config.get("show_progress"), default=True)
         all_chunks: List[Chunk] = []
-        for idx, text in enumerate(documents):
+        for idx, text in enumerate(
+            iter_with_progress(documents, desc="FixedSize Chunking", enabled=show_progress)
+        ):
             meta = documents_meta[idx] if documents_meta is not None else None
             all_chunks.extend(self._split_single(text, meta))
         return all_chunks
 
     def _split_single(
-        self, text: str, document_meta: Optional[Dict[str, Any]] = None
+            self, text: str, document_meta: Optional[Dict[str, Any]] = None
     ) -> List[Chunk]:
-        document_meta = document_meta or {}
         if not text:
             return []
 
-        # Slide a fixed-size window over the raw character string.
-        chunks: List[Chunk] = []
+        document_meta = document_meta or {}
         text_len = len(text)
-        start = 0
 
+        step = self._step
+        chunk_size = self.chunk_size
+        chunks: List[Chunk] = []
+        chunks_append = chunks.append
+
+        # Slide a fixed-size window over the raw character string.
+        start = 0
         while start < text_len:
-            end = min(start + self.chunk_size, text_len)
-            chunk_text = text[start:end]
+            end = start + chunk_size
+            if end > text_len:
+                end = text_len
+
+            meta = document_meta.copy()
+            meta["start_char"] = start
+            meta["end_char"] = end
 
             # Store character offsets so downstream tools can re-map spans.
-            chunks.append(
+            chunks_append(
                 Chunk(
-                    text=chunk_text,
-                    metadata={
-                        **document_meta,
-                        "start_char": start,
-                        "end_char": end,
-                    },
+                    text=text[start:end],
+                    metadata=meta,
                 )
             )
-
             # Stop once we've emitted the tail chunk.
             if end == text_len:
                 break
 
-            start += self._step
+            start += step
 
         return chunks

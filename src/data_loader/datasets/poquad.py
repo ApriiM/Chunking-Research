@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Tuple
 
 from datasets import load_dataset
 
+from src.data_loader.datasets._answer_utils import build_unified_answer_metadata, dedupe_preserve_order
 from src.data_loader.core.registry import dataset
 from src.data_loader.core.schemas import DocumentRecord, QueryRecord
 
@@ -64,13 +65,18 @@ def load_poquad(
         else:
             doc_id = context_to_doc[context]
 
-        query_meta: Dict[str, object] = {}
+        query_meta_base: Dict[str, object] = {}
         if title:
-            query_meta["title"] = title
+            query_meta_base["title"] = title
         if answer_texts:
-            query_meta["answers"] = answer_texts
+            query_meta_base["answers"] = answer_texts
         if answer_starts:
-            query_meta["answer_starts"] = answer_starts
+            query_meta_base["answer_starts"] = answer_starts
+
+        query_meta = build_unified_answer_metadata(
+            base_metadata=query_meta_base,
+            extractive_answers=dedupe_preserve_order(answer_texts),
+        )
 
         queries.append(
             QueryRecord(

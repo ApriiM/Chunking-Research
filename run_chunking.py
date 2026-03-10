@@ -4,6 +4,7 @@ import os
 import sys
 import yaml
 from datetime import datetime, timezone
+from time import perf_counter
 
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
@@ -121,6 +122,7 @@ def _coerce_bool(value, field_name: str) -> bool:
 
 
 def main():
+    total_start = perf_counter()
     # Parse command line arguments
     args = parse_args()
     config_path = args.config
@@ -144,7 +146,9 @@ def main():
 
     # Perform chunking
     print("Performing chunking...")
+    chunking_start = perf_counter()
     chunks = chunker.split_text(documents, documents_meta=documents_meta)
+    chunking_seconds = perf_counter() - chunking_start
 
     if save_chunks:
         final_path = ensure_output_path(chunks_path, overwrite)
@@ -181,11 +185,14 @@ def main():
                 "overwrite": overwrite,
                 "document_count": len(documents),
                 "chunk_count": len(passages),
+                "chunking_seconds": chunking_seconds,
+                "total_runtime_seconds": perf_counter() - total_start,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             },
         )
         print(f"Saved {len(passages)} passages to {final_path}")
         print(f"Saved metadata to {meta_path}")
+        print(f"Chunking runtime: {chunking_seconds:.3f}s")
 
 if __name__ == "__main__":
     main()

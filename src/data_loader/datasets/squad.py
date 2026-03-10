@@ -1,10 +1,16 @@
 import hashlib
+import random
 from typing import Dict, List, Optional, Tuple, Set
 
 from datasets import load_dataset
 
+from src.data_loader.datasets._answer_utils import build_unified_answer_metadata, dedupe_preserve_order
 from src.data_loader.core.registry import dataset
 from src.data_loader.core.schemas import DocumentRecord, QueryRecord
+
+
+_TRAIN_QUERY_SAMPLE_SIZE = 10_000
+_TRAIN_QUERY_SAMPLE_SEED = 42
 
 
 @dataset("squad")
@@ -40,9 +46,6 @@ def load_squad(
 
     ds = load_dataset(**load_kwargs)
 
-    if limit is not None:
-        ds = ds.select(range(min(limit, len(ds))))
-
     documents: List[DocumentRecord] = []
     queries: List[QueryRecord] = []
 
@@ -73,13 +76,18 @@ def load_squad(
 
         answer_starts = [start + context_start_id for start in answer_starts]
 
-        query_meta: Dict[str, object] = {}
+        query_meta_base: Dict[str, object] = {}
         if answer_texts:
-            query_meta["answers"] = answer_texts
+            query_meta_base["answers"] = answer_texts
         if answer_starts:
-            query_meta["answer_starts"] = answer_starts
+            query_meta_base["answer_starts"] = answer_starts
         if "is_impossible" in row:
-            query_meta["is_impossible"] = row.get("is_impossible")
+            query_meta_base["is_impossible"] = row.get("is_impossible")
+
+        query_meta = build_unified_answer_metadata(
+            base_metadata=query_meta_base,
+            extractive_answers=dedupe_preserve_order(answer_texts),
+        )
 
         queries.append(
             QueryRecord(
@@ -98,5 +106,13 @@ def load_squad(
                 metadata={},
             )
         )
+
+    if split == "train" and len(queries) > _TRAIN_QUERY_SAMPLE_SIZE:
+        rng = random.Random(_TRAIN_QUERY_SAMPLE_SEED)
+        sampled_indices = sorted(rng.sample(range(len(queries)), _TRAIN_QUERY_SAMPLE_SIZE))
+        queries = [queries[i] for i in sampled_indices]
+
+    if limit is not None:
+        queries = queries[: min(limit, len(queries))]
 
     return documents, queries

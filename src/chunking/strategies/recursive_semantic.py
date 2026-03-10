@@ -6,6 +6,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 
 from ..core.base import BaseChunker, Chunk
+from ..core.progress import coerce_progress_enabled, iter_with_progress
 from ..core.registry import chunker
 
 
@@ -99,8 +100,11 @@ class RecursiveSemanticChunker(BaseChunker):
         if documents_meta is not None and len(documents_meta) != len(documents):
             raise ValueError("documents_meta length must match documents length")
 
+        show_progress = coerce_progress_enabled(self.config.get("show_progress"), default=True)
         all_chunks: List[Chunk] = []
-        for idx, text in enumerate(documents):
+        for idx, text in enumerate(
+            iter_with_progress(documents, desc="Recursive Semantic Chunking", enabled=show_progress)
+        ):
             meta = documents_meta[idx] if documents_meta is not None else None
             all_chunks.extend(self._split_single(text, meta))
         return all_chunks

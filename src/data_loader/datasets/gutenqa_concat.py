@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, Tuple
 
 from datasets import load_dataset
 
+from src.data_loader.datasets._answer_utils import build_unified_answer_metadata, split_text_answers
 from src.data_loader.core.registry import dataset
 from src.data_loader.core.schemas import DocumentRecord, QueryRecord
 
@@ -85,6 +86,7 @@ def load_gutenqa_concat(
         )
 
     existing_ids = {doc.doc_id for doc in documents}
+    doc_contents_by_id = {doc.doc_id: doc.contents for doc in documents}
 
     # ----- Load questions / queries -----
     base_split, slice_obj = _split_base_and_slice(split)
@@ -114,12 +116,21 @@ def load_gutenqa_concat(
         if base_relevant not in existing_ids:
             continue  # skip queries whose grouped doc is missing
 
+        answer = row.get("Answer")
+        extractive_answers, free_text_answers = split_text_answers(
+            doc_contents_by_id.get(base_relevant, ""),
+            [answer],
+        )
         queries.append(
             QueryRecord(
                 query_id=f"q.{idx + 1}",
                 contents=row.get("Question", "") or "",
                 relevant=[base_relevant],
-                metadata={"Answer": row.get("Answer")},
+                metadata=build_unified_answer_metadata(
+                    base_metadata={"Answer": answer},
+                    extractive_answers=extractive_answers,
+                    free_text_answers=free_text_answers,
+                ),
             )
         )
 

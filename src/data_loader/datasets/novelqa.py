@@ -5,12 +5,17 @@ import json
 import os
 import shutil
 import subprocess
-import tempfile
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from src.data_loader.core.registry import dataset
 from src.data_loader.core.schemas import DocumentRecord, QueryRecord
+
+try:
+    from huggingface_hub import get_token as _hf_get_token
+except ImportError:
+    _hf_get_token = None
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +107,27 @@ def _resolve_repo_path(
     return Path(downloads_dir) / "NovelQA"
 
 
+def _resolve_hf_token(hf_token: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve the Hugging Face token and describe its source."""
+    if hf_token:
+        return hf_token, "loader kwarg"
+
+    env_hf_hub = os.getenv("HUGGINGFACE_HUB_TOKEN")
+    if env_hf_hub:
+        return env_hf_hub, "HUGGINGFACE_HUB_TOKEN"
+
+    env_hf = os.getenv("HF_TOKEN")
+    if env_hf:
+        return env_hf, "HF_TOKEN"
+
+    if _hf_get_token is not None:
+        cached = _hf_get_token()
+        if cached:
+            return cached, "hf auth login"
+
+    return None, None
+
+
 def _clone_repository(
     target_path: Path,
     hf_token: Optional[str],
@@ -116,21 +142,43 @@ def _clone_repository(
         print(f"[novelqa] Removing existing repository at: {target_path}")
         shutil.rmtree(target_path)
 
-    token = hf_token or os.getenv("HUGGINGFACE_HUB_TOKEN")
+    token, token_source = _resolve_hf_token(hf_token)
     if not token:
         raise EnvironmentError(
             "A Hugging Face token is required to clone NovelQA.\n"
-            "Set the HF_TOKEN environment variable or pass hf_token= to the loader."
+            "Set HUGGINGFACE_HUB_TOKEN or HF_TOKEN, run `hf auth login`, "
+            "or pass hf_token= to the loader."
         )
 
-    # Build authenticated git URL.
-    repo_url = f"https://user:{token}@huggingface.co/datasets/{hf_repo}"
+    repo_url = f"https://huggingface.co/datasets/{hf_repo}"
     print(f"[novelqa] Cloning {hf_repo} → {target_path} …")
-    subprocess.run(
-        ["git", "clone", repo_url, str(target_path)],
-        check=True,
-    )
-    print("[novelqa] Clone finished.")
+    print(f"[novelqa] Using Hugging Face token from: {token_source}.")
+    print("[novelqa] Git progress will be shown below.")
+    started_at = time.monotonic()
+    try:
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                f"http.extraHeader=Authorization: Bearer {token}",
+                "clone",
+                "--progress",
+                repo_url,
+                str(target_path),
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            "Failed to clone the restricted dataset repository.\n"
+            f"Token source used: {token_source}.\n"
+            "If HF_TOKEN / HUGGINGFACE_HUB_TOKEN is set, it takes precedence over "
+            "`hf auth login`.\n"
+            "Make sure the token belongs to an account that has been granted access "
+            "to the gated dataset, or unset the env var and rely on `hf auth login`."
+        ) from exc
+    elapsed = time.monotonic() - started_at
+    print(f"[novelqa] Clone finished in {elapsed:.1f}s.")
 
 
 def _find_files_in_subdirs(

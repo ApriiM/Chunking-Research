@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import io
+import json
+import shutil
+import tarfile
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-
-from datasets import load_dataset
+from urllib.request import urlopen
 
 from src.data_loader.datasets._answer_utils import (
     build_unified_answer_metadata,
@@ -12,6 +16,15 @@ from src.data_loader.datasets._answer_utils import (
 )
 from src.data_loader.core.registry import dataset
 from src.data_loader.core.schemas import DocumentRecord, QueryRecord
+
+_QASPER_DATASET_NAME = "allenai/qasper"
+_QASPER_URL_TRAIN_DEV = "https://qasper-dataset.s3.us-west-2.amazonaws.com/qasper-train-dev-v0.3.tgz"
+_QASPER_URL_TEST = "https://qasper-dataset.s3.us-west-2.amazonaws.com/qasper-test-and-evaluator-v0.3.tgz"
+_QASPER_DATA_FILES = {
+    "train": "qasper-train-v0.3.json",
+    "validation": "qasper-dev-v0.3.json",
+    "test": "qasper-test-v0.3.json",
+}
 
 
 def _clean_text(value: Any) -> str:
@@ -31,6 +44,74 @@ def _dedupe_preserve_order(values: List[str]) -> List[str]:
         seen.add(value)
         out.append(value)
     return out
+
+
+def _normalize_split(split: str) -> str:
+    split_value = _clean_text(split).lower()
+    if "[" in split_value:
+        split_value = split_value.split("[", 1)[0].strip()
+
+    if split_value == "dev":
+        split_value = "validation"
+    elif split_value == "val":
+        split_value = "validation"
+
+    if split_value not in _QASPER_DATA_FILES:
+        raise ValueError(f"Unsupported Qasper split: {split!r}. Expected train, validation/dev, or test.")
+    return split_value
+
+
+def _qasper_cache_dir(cache_dir: Optional[str]) -> Path:
+    if cache_dir:
+        root = Path(cache_dir)
+    else:
+        root = Path.home() / ".cache" / "chunking" / "qasper"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _download_if_missing(url: str, destination: Path) -> None:
+    if destination.exists():
+        return
+    with urlopen(url) as response, destination.open("wb") as output_file:
+        shutil.copyfileobj(response, output_file)
+
+
+def _load_qasper_rows(split: str, cache_dir: Optional[str]) -> List[Dict[str, Any]]:
+    normalized_split = _normalize_split(split)
+    data_filename = _QASPER_DATA_FILES[normalized_split]
+    archive_url = _QASPER_URL_TEST if normalized_split == "test" else _QASPER_URL_TRAIN_DEV
+
+    cache_root = _qasper_cache_dir(cache_dir)
+    archive_path = cache_root / Path(archive_url).name
+    _download_if_missing(archive_url, archive_path)
+
+    with tarfile.open(archive_path, mode="r:gz") as archive:
+        member = next((item for item in archive.getmembers() if item.name.endswith(data_filename)), None)
+        if member is None:
+            raise RuntimeError(f"Could not find {data_filename} in archive {archive_path}")
+
+        extracted = archive.extractfile(member)
+        if extracted is None:
+            raise RuntimeError(f"Could not extract {data_filename} from archive {archive_path}")
+
+        with io.TextIOWrapper(extracted, encoding="utf-8") as json_file:
+            payload = json.load(json_file)
+
+    if not isinstance(payload, dict):
+        raise RuntimeError(
+            f"Unexpected Qasper payload type for split {normalized_split!r}: {type(payload).__name__}"
+        )
+
+    rows: List[Dict[str, Any]] = []
+    for paper_id, row in payload.items():
+        if not isinstance(row, dict):
+            continue
+        record = dict(row)
+        record.setdefault("id", str(paper_id))
+        rows.append(record)
+
+    return rows
 
 
 def _render_full_text(full_text: Any) -> Tuple[str, int]:
@@ -211,7 +292,7 @@ def load_qasper(
     split: str = "train",
     cache_dir: Optional[str] = None,
     limit: Optional[int] = None,
-    dataset_name: str = "allenai/qasper",
+    dataset_name: str = _QASPER_DATASET_NAME,
 ) -> Tuple[List[DocumentRecord], List[QueryRecord]]:
     """Load QASPER into full-paper documents and flattened QA queries.
 
@@ -224,16 +305,20 @@ def load_qasper(
     - one `DocumentRecord` per paper
     - one `QueryRecord` per question inside that paper
     """
-    ds = load_dataset(
-        dataset_name,
-        split=split,
-        cache_dir=cache_dir,
-    )
+    if dataset_name != _QASPER_DATASET_NAME:
+        raise ValueError(
+            f"Unsupported Qasper dataset_name {dataset_name!r}. "
+            f"Only {_QASPER_DATASET_NAME!r} is supported."
+        )
+
+    rows = _load_qasper_rows(split=split, cache_dir=cache_dir)
+    if limit is not None:
+        rows = rows[:limit]
 
     documents: List[DocumentRecord] = []
     queries: List[QueryRecord] = []
 
-    for row in ds:
+    for row in rows:
         paper_id = _clean_text(row.get("id"))
         title = _clean_text(row.get("title"))
         abstract = _clean_text(row.get("abstract"))
@@ -261,15 +346,34 @@ def load_qasper(
         if not contents:
             continue
 
-        qas_dict = qas if isinstance(qas, dict) else {}
-        questions = _get_list(qas_dict.get("question"))
-        question_ids = _get_list(qas_dict.get("question_id"))
-        question_writers = _get_list(qas_dict.get("question_writer"))
-        nlp_backgrounds = _get_list(qas_dict.get("nlp_background"))
-        topic_backgrounds = _get_list(qas_dict.get("topic_background"))
-        paper_read_values = _get_list(qas_dict.get("paper_read"))
-        search_queries = _get_list(qas_dict.get("search_query"))
-        answers_by_question = _get_list(qas_dict.get("answers"))
+        if isinstance(qas, dict):
+            questions = _get_list(qas.get("question"))
+            question_ids = _get_list(qas.get("question_id"))
+            question_writers = _get_list(qas.get("question_writer"))
+            nlp_backgrounds = _get_list(qas.get("nlp_background"))
+            topic_backgrounds = _get_list(qas.get("topic_background"))
+            paper_read_values = _get_list(qas.get("paper_read"))
+            search_queries = _get_list(qas.get("search_query"))
+            answers_by_question = _get_list(qas.get("answers"))
+        elif isinstance(qas, list):
+            qa_items = [item for item in qas if isinstance(item, dict)]
+            questions = [item.get("question") for item in qa_items]
+            question_ids = [item.get("question_id") for item in qa_items]
+            question_writers = [item.get("question_writer") for item in qa_items]
+            nlp_backgrounds = [item.get("nlp_background") for item in qa_items]
+            topic_backgrounds = [item.get("topic_background") for item in qa_items]
+            paper_read_values = [item.get("paper_read") for item in qa_items]
+            search_queries = [item.get("search_query") for item in qa_items]
+            answers_by_question = [item.get("answers") for item in qa_items]
+        else:
+            questions = []
+            question_ids = []
+            question_writers = []
+            nlp_backgrounds = []
+            topic_backgrounds = []
+            paper_read_values = []
+            search_queries = []
+            answers_by_question = []
 
         documents.append(
             DocumentRecord(

@@ -13,6 +13,74 @@ LITERARY_PY_VERSION="3.12.11"
 MAIN_FREEZE="versions_venv.txt"
 LITERARY_FREEZE="versions_venv_literaryqa.txt"
 
+DOWNLOAD_NOVELQA=0
+NOVELQA_FORCE=0
+NOVELQA_HF_TOKEN=""
+NOVELQA_REPO="NovelQA/NovelQA"
+NOVELQA_TARGET="downloads/NovelQA"
+
+usage() {
+  cat <<'EOF'
+Usage: ./init.sh [options]
+
+Options:
+  --download-novelqa        Clone NovelQA as the last setup step.
+  --hf-token TOKEN          Hugging Face token for NovelQA clone.
+                            Fallbacks: HUGGINGFACE_HUB_TOKEN, HF_TOKEN.
+  --force-novelqa           Re-download NovelQA even if target exists.
+  --novelqa-repo REPO       HF dataset repo slug (default: NovelQA/NovelQA).
+  --novelqa-target PATH     Clone destination (default: downloads/NovelQA).
+  -h, --help                Show this help.
+EOF
+}
+
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --download-novelqa)
+        DOWNLOAD_NOVELQA=1
+        ;;
+      --force-novelqa)
+        NOVELQA_FORCE=1
+        ;;
+      --hf-token)
+        if [[ $# -lt 2 ]]; then
+          echo "Missing value for --hf-token" >&2
+          exit 1
+        fi
+        NOVELQA_HF_TOKEN="$2"
+        shift
+        ;;
+      --novelqa-repo)
+        if [[ $# -lt 2 ]]; then
+          echo "Missing value for --novelqa-repo" >&2
+          exit 1
+        fi
+        NOVELQA_REPO="$2"
+        shift
+        ;;
+      --novelqa-target)
+        if [[ $# -lt 2 ]]; then
+          echo "Missing value for --novelqa-target" >&2
+          exit 1
+        fi
+        NOVELQA_TARGET="$2"
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        echo "Unknown option: $1" >&2
+        usage >&2
+        exit 1
+        ;;
+    esac
+    shift
+  done
+}
+
 require_file() {
   local path="$1"
   if [[ ! -f "$path" ]]; then
@@ -25,8 +93,8 @@ ensure_pyenv_python() {
   local version="$1"
   local pyenv_root="$2"
   if ! pyenv versions --bare | grep -Fxq "$version"; then
-    echo "Installing Python $version with pyenv"
-    pyenv install -s "$version"
+    echo "Installing Python $version with pyenv" >&2
+    pyenv install -s "$version" >&2
   fi
 
   local py_bin="$pyenv_root/versions/$version/bin/python"
@@ -34,7 +102,7 @@ ensure_pyenv_python() {
     echo "pyenv python not found for $version: $py_bin" >&2
     exit 1
   fi
-  echo "$py_bin"
+  printf '%s\n' "$py_bin"
 }
 
 ensure_venv() {
@@ -63,6 +131,55 @@ install_from_freeze() {
   "$venv_dir/bin/python" -m pip install --upgrade pip
   "$venv_dir/bin/pip" install -r "$freeze_file"
 }
+
+resolve_hf_token() {
+  if [[ -n "$NOVELQA_HF_TOKEN" ]]; then
+    printf '%s' "$NOVELQA_HF_TOKEN"
+    return
+  fi
+  if [[ -n "${HUGGINGFACE_HUB_TOKEN:-}" ]]; then
+    printf '%s' "$HUGGINGFACE_HUB_TOKEN"
+    return
+  fi
+  if [[ -n "${HF_TOKEN:-}" ]]; then
+    printf '%s' "$HF_TOKEN"
+    return
+  fi
+  printf ''
+}
+
+download_novelqa() {
+  local token
+  token="$(resolve_hf_token)"
+  if [[ -z "$token" ]]; then
+    echo "NovelQA download requested but no HF token provided." >&2
+    echo "Use --hf-token or set HUGGINGFACE_HUB_TOKEN / HF_TOKEN." >&2
+    exit 1
+  fi
+
+  if ! command -v git >/dev/null 2>&1; then
+    echo "git is required for NovelQA clone." >&2
+    exit 1
+  fi
+
+  if [[ -e "$NOVELQA_TARGET" ]]; then
+    if [[ "$NOVELQA_FORCE" == "1" ]]; then
+      echo "Removing existing NovelQA target: $NOVELQA_TARGET"
+      rm -rf "$NOVELQA_TARGET"
+    else
+      echo "NovelQA target already exists, skipping: $NOVELQA_TARGET"
+      return
+    fi
+  fi
+
+  mkdir -p "$(dirname "$NOVELQA_TARGET")"
+  echo "== NovelQA download =="
+  echo "Cloning https://huggingface.co/datasets/$NOVELQA_REPO -> $NOVELQA_TARGET"
+  git -c "http.extraHeader=Authorization: Bearer ${token}" \
+    clone --progress "https://huggingface.co/datasets/$NOVELQA_REPO" "$NOVELQA_TARGET"
+}
+
+parse_args "$@"
 
 echo "== Submodules =="
 git submodule update --init --recursive
@@ -109,6 +226,10 @@ if importlib.util.find_spec(model) is None:
 else:
     print(f"{model} already installed")
 PY
+
+if [[ "$DOWNLOAD_NOVELQA" == "1" ]]; then
+  download_novelqa
+fi
 
 echo ""
 echo "✅ Setup complete."

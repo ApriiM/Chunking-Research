@@ -1,18 +1,19 @@
 # Configuration for Recursive Semantic Chunker (RSC)
 # Mirrors Algorithm 1 from the paper
+# te 5 parametrów testowałbym/ dopasował do zbioru danych/modelu, podane wartości są z papiera
+embedding_model: sentence-transformers/all-MiniLM-L6-v2 # to test BAAI/bge-m3
 max_chunk_size: 15000         # Tmax: maximum segment size before initial splitting
+recursive_threshold: 1500     # Tchunk: initial recursive split trigger (dynamic threshold starts here)
+final_threshold: 2500         # Tfinal: maximum chunk size after recursive and merge adjustments
+merge_threshold: 350          # Tmerge: minimum chunk size for merging
 
 # Recursive semantic chunking
-recursive_threshold: 1500     # Tchunk: initial recursive split trigger (dynamic threshold starts here)
 delta: 3                      # Threshold decrement per recursion level
 initial_breakpoint_threshold: 95  # Starting percentile threshold for SemanticChunker
 
 # Merging short chunks
-merge_threshold: 350          # Tmerge: minimum chunk size for merging
 breakpoint_threshold_type: percentile  # Strategy for SemanticChunker
 
 # Final chunk size enforcement
-final_threshold: 2500         # Tfinal: maximum chunk size after recursive and merge adjustments
 
 # Embeddings configuration
-embedding_model: sentence-transformers/all-MiniLM-L6-v2

@@ -6,6 +6,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Iterator, List, Optional, Sequence
+from tqdm.auto import tqdm
 
 
 REQUIRED_RUN_FILES: Sequence[str] = (
@@ -206,70 +207,131 @@ def _normalize_text_for_match(text: str) -> str:
     return re.sub(r"[\s\.]+", "", text or "")
 
 
-def _merge_with_overlap(left: str, right: str) -> str:
+def _find_overlap_len(left: str, right: str) -> int:
     if not left:
-        return right
+        return 0
     if not right:
-        return left
+        return 0
 
     max_overlap = min(len(left), len(right))
-    overlap_len = 0
     for candidate in range(max_overlap, 0, -1):
         if left[-candidate:] == right[:candidate]:
-            overlap_len = candidate
-            break
-    return left + right[overlap_len:]
+            return candidate
+    return 0
 
 
-def _join_group_with_overlap(
-    group_ids: List[str],
-    normalized_passage_contents: dict[str, str],
-) -> str:
-    merged = ""
-    for pid in group_ids:
-        merged = _merge_with_overlap(merged, normalized_passage_contents.get(pid, ""))
-    return merged
+@dataclass(frozen=True)
+class _MergedPassageSpan:
+    passage_id: str
+    start: int
+    end: int
+    # Number of chars skipped from this passage because they already existed
+    # as suffix of the previously merged text.
+    overlap_from_prev: int
 
 
-def _find_extractive_relevant_passages(
+def _merge_all_passages_with_spans(
     candidate_passage_ids: List[str],
     normalized_passage_contents: dict[str, str],
+) -> tuple[str, List[_MergedPassageSpan]]:
+    merged = ""
+    spans: List[_MergedPassageSpan] = []
+    for pid in candidate_passage_ids:
+        passage_text = normalized_passage_contents.get(pid, "")
+        overlap_len = _find_overlap_len(merged, passage_text)
+        start = len(merged) - overlap_len
+        end = start + len(passage_text)
+        spans.append(
+            _MergedPassageSpan(
+                passage_id=pid,
+                start=start,
+                end=end,
+                overlap_from_prev=overlap_len,
+            )
+        )
+        merged += passage_text[overlap_len:]
+    return merged, spans
+
+
+def _iter_substring_positions(text: str, substring: str) -> Iterator[int]:
+    start = 0
+    while True:
+        pos = text.find(substring, start)
+        if pos < 0:
+            return
+        yield pos
+        # Allow overlapping matches, e.g. "aaa" and "aa".
+        start = pos + 1
+
+
+def _find_covering_chunk_group(
+    spans: List[_MergedPassageSpan],
+    *,
+    span_start: int,
+    span_end: int,
+) -> List[tuple[int, int]]:
+    start_candidates = [
+        idx
+        for idx, chunk in enumerate(spans)
+        if chunk.start <= span_start < chunk.end
+    ]
+    if not start_candidates:
+        return []
+
+    groups: List[tuple[int, int]] = []
+    for start_idx in start_candidates:
+        end_idx = start_idx
+        while end_idx < len(spans) and spans[end_idx].end < span_end:
+            end_idx += 1
+        if end_idx >= len(spans):
+            continue
+        groups.append((start_idx, end_idx))
+    return groups
+
+
+def _candidate_passage_ids_for_docs(
+    relevant_doc_ids: Sequence[str],
+    doc_to_passages: dict[str, List[str]],
+) -> List[str]:
+    candidate_passage_ids: List[str] = []
+    for doc_id in relevant_doc_ids:
+        candidate_passage_ids.extend(doc_to_passages.get(doc_id, []))
+    return _dedupe_preserve_order(candidate_passage_ids)
+
+
+def _find_extractive_relevant_passages_in_merged(
+    candidate_passage_ids: List[str],
+    merged_text: str,
+    spans: List[_MergedPassageSpan],
     normalized_answers: List[str],
 ) -> tuple[List[str], List[float]]:
     if not candidate_passage_ids or not normalized_answers:
         return [], []
+    if not merged_text:
+        return [], []
 
-    # Iterative granularity:
-    # size=1 -> single passage
-    # size=2 -> neighboring "super passages" (0+1, 1+2, ...)
-    # size=3..N -> increasingly bigger neighboring groups.
-    total = len(candidate_passage_ids)
-    for group_size in range(1, total + 1):
-        matched_groups: List[List[str]] = []
-        for start in range(0, total - group_size + 1):
-            group_ids = candidate_passage_ids[start : start + group_size]
-            group_text = _join_group_with_overlap(group_ids, normalized_passage_contents)
-            if not group_text:
-                continue
-            if any(answer in group_text for answer in normalized_answers):
-                matched_groups.append(group_ids)
+    score_by_passage: dict[str, float] = {}
+    normalized_answers = _dedupe_preserve_order(normalized_answers)
+    for answer in normalized_answers:
+        for span_start in _iter_substring_positions(merged_text, answer):
+            span_end = span_start + len(answer)
+            groups = _find_covering_chunk_group(
+                spans,
+                span_start=span_start,
+                span_end=span_end,
+            )
+            for start_idx, end_idx in groups:
+                group_size = (end_idx - start_idx) + 1
+                score = 1.0 / float(group_size)
+                for idx in range(start_idx, end_idx + 1):
+                    pid = spans[idx].passage_id
+                    previous = score_by_passage.get(pid, 0.0)
+                    if score > previous:
+                        score_by_passage[pid] = score
 
-        if not matched_groups:
-            continue
-
-        score = 1.0 / float(group_size)
-        score_by_passage: dict[str, float] = {}
-        for group_ids in matched_groups:
-            for pid in group_ids:
-                previous = score_by_passage.get(pid, 0.0)
-                if score > previous:
-                    score_by_passage[pid] = score
-
-        relevant = [pid for pid in candidate_passage_ids if pid in score_by_passage]
-        relevant_scores = [score_by_passage[pid] for pid in relevant]
-        return relevant, relevant_scores
-
-    return [], []
+    relevant = [pid for pid in candidate_passage_ids if pid in score_by_passage]
+    relevant_scores = [score_by_passage[pid] for pid in relevant]
+    return relevant, relevant_scores
 
 
 def _convert_queries(
@@ -282,9 +344,53 @@ def _convert_queries(
     dst_queries.parent.mkdir(parents=True, exist_ok=True)
     extractive_query_count = 0
     extractive_not_found_ids: List[str] = []
+    total_queries = 0
+    extractive_passage_bins: List[tuple[str, ...]] = []
+    seen_bins: set[tuple[str, ...]] = set()
+
+    # First pass: count queries and group extractive queries by candidate
+    # passage-id bins so merged passage text is built once per bin.
+    for row in _iter_jsonl(src_queries):
+        total_queries += 1
+        metadata = row.get("metadata") or row.get("meta") or {}
+        has_extractive = (
+            isinstance(metadata, dict)
+            and ("extractive_span_text_answer" in metadata)
+        ) or ("extractive_span_text_answer" in row)
+        if not has_extractive:
+            continue
+        relevant_doc_ids = _to_str_list(row.get("relevant"))
+        candidate_passage_ids = _candidate_passage_ids_for_docs(
+            relevant_doc_ids,
+            doc_to_passages,
+        )
+        bin_key = tuple(candidate_passage_ids)
+        if bin_key in seen_bins:
+            continue
+        seen_bins.add(bin_key)
+        extractive_passage_bins.append(bin_key)
+
+    merged_cache: dict[tuple[str, ...], tuple[str, List[_MergedPassageSpan]]] = {}
+    for bin_key in tqdm(
+        extractive_passage_bins,
+        total=len(extractive_passage_bins),
+        desc=f"Preparing extractive bins ({src_queries.parent.parent.name})",
+        unit="bin",
+    ):
+        merged_cache[bin_key] = _merge_all_passages_with_spans(
+            list(bin_key),
+            normalized_passage_contents,
+        )
 
     with dst_queries.open("w", encoding="utf-8") as out_f:
-        for idx, row in enumerate(_iter_jsonl(src_queries)):
+        for idx, row in enumerate(
+            tqdm(
+                _iter_jsonl(src_queries),
+                total=total_queries,
+                desc=f"Converting queries ({src_queries.parent.parent.name})",
+                unit="query",
+            )
+        ):
             qid = str(row.get("id") or row.get("query_id") or idx)
             contents = str(
                 row.get("contents")
@@ -298,6 +404,10 @@ def _convert_queries(
             metadata = row.get("metadata") or row.get("meta") or {}
             has_extractive = (isinstance(metadata, dict) and ("extractive_span_text_answer" in metadata)) or (
                 "extractive_span_text_answer" in row
+            )
+            candidate_passage_ids = _candidate_passage_ids_for_docs(
+                relevant_doc_ids,
+                doc_to_passages,
             )
 
             if has_extractive:
@@ -314,24 +424,20 @@ def _convert_queries(
                     for answer in _to_str_list(extractive_values)
                 ]
                 normalized_answers = [answer for answer in normalized_answers if answer]
-
-                candidate_passage_ids: List[str] = []
-                for doc_id in relevant_doc_ids:
-                    candidate_passage_ids.extend(doc_to_passages.get(doc_id, []))
-                candidate_passage_ids = _dedupe_preserve_order(candidate_passage_ids)
-
-                relevant, relevant_scores = _find_extractive_relevant_passages(
+                merged_text, spans = merged_cache.get(
+                    tuple(candidate_passage_ids),
+                    ("", []),
+                )
+                relevant, relevant_scores = _find_extractive_relevant_passages_in_merged(
                     candidate_passage_ids,
-                    normalized_passage_contents,
+                    merged_text,
+                    spans,
                     normalized_answers,
                 )
                 if not relevant:
                     extractive_not_found_ids.append(qid)
             else:
-                expanded: List[str] = []
-                for doc_id in relevant_doc_ids:
-                    expanded.extend(doc_to_passages.get(doc_id, []))
-                relevant = _dedupe_preserve_order(expanded)
+                relevant = candidate_passage_ids
                 relevant_scores = [1] * len(relevant)
 
             converted_row = {

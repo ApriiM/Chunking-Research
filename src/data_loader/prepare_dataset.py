@@ -6,7 +6,10 @@ import yaml
 
 from src.data_loader.core.registry import get_dataset_loader
 from src.data_loader.core.schemas import QueryRecord
-from src.data_loader.core.schemas import save_document_records_jsonl, save_query_records_jsonl
+from src.data_loader.core.schemas import (
+    save_document_records_jsonl,
+    save_query_records_jsonl,
+)
 
 
 ANSWER_KEY_COVERAGE_THRESHOLD = 0.8
@@ -69,12 +72,48 @@ def _normalize_query_answer_metadata(queries: list[QueryRecord]) -> list[QueryRe
     ]
     return filtered
 
+
+def _downsample_documents_and_filter_queries(
+    documents: list,
+    queries: list[QueryRecord],
+    docs_downsample: Optional[int],
+) -> tuple[list, list[QueryRecord], int, int]:
+    """Keep first N docs and only queries that remain linked to those docs."""
+    if docs_downsample is None or docs_downsample >= len(documents):
+        return documents, queries, 0, 0
+
+    kept_documents = documents[:docs_downsample]
+    kept_doc_ids = {doc.doc_id for doc in kept_documents}
+
+    kept_queries: list[QueryRecord] = []
+    dropped_queries = 0
+    trimmed_queries = 0
+
+    for query in queries:
+        filtered_relevant = [doc_id for doc_id in query.relevant if doc_id in kept_doc_ids]
+        if not filtered_relevant:
+            dropped_queries += 1
+            continue
+        if len(filtered_relevant) != len(query.relevant):
+            trimmed_queries += 1
+        kept_queries.append(
+            QueryRecord(
+                query_id=query.query_id,
+                contents=query.contents,
+                relevant=filtered_relevant,
+                metadata=query.metadata,
+            )
+        )
+
+    return kept_documents, kept_queries, dropped_queries, trimmed_queries
+
 def prepare_dataset(
     dataset: str,
     split: str,
     output_dir: str,
     cache_dir: Optional[str],
     limit: Optional[int],
+    docs_downsample: Optional[int],
     loader_kwargs: Dict,
     overwrite: bool,
 ) -> None:
@@ -83,6 +122,13 @@ def prepare_dataset(
     documents, queries = loader(split=split, cache_dir=cache_dir, limit=limit, **loader_kwargs)
     original_query_count = len(queries)
     queries = _normalize_query_answer_metadata(queries)
+    original_document_count = len(documents)
+    original_normalized_query_count = len(queries)
+    documents, queries, dropped_queries, trimmed_queries = _downsample_documents_and_filter_queries(
+        documents=documents,
+        queries=queries,
+        docs_downsample=docs_downsample,
+    )
 
     documents_dir = os.path.join(output_dir, "documents")
     queries_dir = os.path.join(output_dir, "queries")
@@ -107,6 +153,12 @@ def prepare_dataset(
             f"Filtered queries by unified answer coverage policy: "
             f"{original_query_count} -> {len(queries)}"
         )
+    if docs_downsample is not None and docs_downsample < original_document_count:
+        print(
+            f"Applied docs downsample: documents {original_document_count} -> {len(documents)}; "
+            f"queries {original_normalized_query_count} -> {len(queries)} "
+            f"(dropped={dropped_queries}, trimmed_relevant={trimmed_queries})"
+        )
 
 
 def parse_args():
@@ -116,6 +168,15 @@ def parse_args():
     parser.add_argument("--output-dir", default=None, help="Output directory (defaults to data/processed/<dataset>/<split>)")
     parser.add_argument("--cache-dir", default=None, help="Optional Hugging Face cache directory")
     parser.add_argument("--limit", type=int, default=None, help="Optional hard cap on number of rows")
+    parser.add_argument(
+        "--docs-downsample",
+        type=int,
+        default=None,
+        help=(
+            "Optional cap on number of documents to keep in final outputs. "
+            "Queries are filtered to retain only those linked to kept documents."
+        ),
+    )
     parser.add_argument(
         "--loader-kwargs",
         default="",
@@ -127,6 +188,8 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if args.docs_downsample is not None and args.docs_downsample <= 0:
+        raise ValueError("--docs-downsample must be > 0")
     loader_kwargs = _parse_loader_kwargs(args.loader_kwargs)
     output_dir = args.output_dir or os.path.join("data", "processed", args.dataset, args.split)
 
@@ -136,6 +199,7 @@ def main():
         output_dir=output_dir,
         cache_dir=args.cache_dir,
         limit=args.limit,
+        docs_downsample=args.docs_downsample,
         loader_kwargs=loader_kwargs,
         overwrite=args.overwrite,
     )

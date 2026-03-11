@@ -470,6 +470,30 @@ def _convert_queries(
     return extractive_query_count, extractive_not_found_ids
 
 
+def _ensure_non_empty_relevant_in_queries(queries_path: Path) -> int:
+    rows = list(_iter_jsonl(queries_path))
+    patched = 0
+    for row in rows:
+        relevant = row.get("relevant")
+        if isinstance(relevant, list):
+            if relevant:
+                continue
+        elif relevant:
+            continue
+
+        row["relevant"] = ["-1"]
+        row["relevant_scores"] = [0.0]
+        patched += 1
+
+    if patched == 0:
+        return 0
+
+    with queries_path.open("w", encoding="utf-8") as out_f:
+        for row in rows:
+            out_f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    return patched
+
+
 def export_runs_to_pirb(
     input_path: Path,
     output_root: Path,
@@ -558,6 +582,17 @@ def export_runs_to_pirb(
             failures.append(RunExportFailure(source_run_dir=run_dir, reason=reason))
             if log_fn:
                 log_fn(f"[FAIL] {run_dir} -> {reason}")
+
+    patched_queries = 0
+    for result in results:
+        queries_path = result.target_run_dir / "queries" / "queries.jsonl"
+        if not queries_path.is_file():
+            continue
+        patched_queries += _ensure_non_empty_relevant_in_queries(queries_path)
+    if log_fn and patched_queries:
+        log_fn(
+            f"[POST] patched empty relevant lists in exported queries: {patched_queries}"
+        )
 
     return ExportSummary(
         input_path=input_path,

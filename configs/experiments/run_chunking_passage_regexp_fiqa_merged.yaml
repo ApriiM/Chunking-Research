@@ -1,0 +1,12 @@
+chunker:
+  name: fixed_size
+  params:
+    chunk_size: 256
+    overlap: 32
+
+documents_path: data/fiqa2018/processed/documents_merged/documents.jsonl
+
+output:
+  save_chunks: true
+  chunks_path: data/fiqa2018/processed/passages_all/passages_fixed_size_merged.jsonl
+  overwrite: true

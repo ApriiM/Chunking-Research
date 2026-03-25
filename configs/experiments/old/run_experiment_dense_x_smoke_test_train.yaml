@@ -1,0 +1,13 @@
+output_root: results/experiments/dense_x_smoke_test_train
+overwrite: false
+continue_on_error: false
+max_chunking_minutes: 60
+
+runs:
+  - name: dense_x_smoke_test_train
+    documents_path: data/smoke/test/train/documents/documents.jsonl
+    queries_path: data/smoke/test/train/queries/queries.jsonl
+    chunker_name: dense_x_retrieval
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true

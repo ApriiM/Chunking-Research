@@ -1,0 +1,14 @@
+output_root: results/experiments/fixed_size_squad_validation
+overwrite: false
+continue_on_error: true
+
+runs:
+  - name: fixed_size_single
+    documents_path: data/processed/squad/validation/documents/documents.jsonl
+    chunker_name: fixed_size
+    chunker_params:
+      chunk_size: 512
+      overlap: 50
+      show_progress: true
+    repeats: 1
+    copy_inputs: true

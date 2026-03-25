@@ -1,0 +1,39 @@
+output_root: results/experiments/lumberchunker_api_validation_then_test
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 360
+
+train_documents_paths: &train_documents_paths
+  - data/processed/gutenqa/all/documents/documents.jsonl
+  - data/processed/gutenqa/all_merged/documents/documents.jsonl
+  - data/processed/literaryqa/validation/documents/documents.jsonl
+  - data/processed/natural_questions/validation_100_docs/documents/documents.jsonl
+  - data/processed/natural_questions/validation_300_docs/documents/documents.jsonl
+  - data/processed/novelqa/public/documents/documents.jsonl
+  - data/processed/poquad/train/documents/documents.jsonl
+  - data/processed/poquad/train_merged/documents/documents.jsonl
+  - data/processed/qasper/train/documents/documents.jsonl
+  - data/processed/squad/train/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/train_artificial_1000_docs/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/train_artificial_1000_docs_merged/documents/documents.jsonl
+
+test_validation_documents_paths: &test_validation_documents_paths
+  - data/processed/literaryqa/test/documents/documents.jsonl
+  - data/processed/poquad/validation/documents/documents.jsonl
+  - data/processed/poquad/validation_merged/documents/documents.jsonl
+  - data/processed/qasper/test/documents/documents.jsonl
+  - data/processed/qasper/validation/documents/documents.jsonl
+  - data/processed/squad/validation/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/test_artificial_1000_docs/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/test_artificial_1000_docs_merged/documents/documents.jsonl
+
+runs:
+  - name: lumberchunker_api_test_validation_datasets
+    chunker_name: lumberchunker_api
+    chunker_params: {}
+    documents_paths: *test_validation_documents_paths
+
+  - name: lumberchunker_api_train_datasets
+    chunker_name: lumberchunker_api
+    chunker_params: {}
+    documents_paths: *train_documents_paths

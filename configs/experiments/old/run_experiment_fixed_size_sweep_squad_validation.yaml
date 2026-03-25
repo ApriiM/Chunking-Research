@@ -1,0 +1,14 @@
+output_root: results/experiments/my_sweep
+overwrite: false
+continue_on_error: true
+
+runs:
+  - name: fixed_size_sweep
+    documents_path: data/processed/squad/validation/documents/documents.jsonl
+    chunker_name: fixed_size
+    chunker_params: {}
+    param_grid:
+      chunk_size: [256, 512]
+      overlap: [0, 32]
+    repeats: 1
+    copy_inputs: true

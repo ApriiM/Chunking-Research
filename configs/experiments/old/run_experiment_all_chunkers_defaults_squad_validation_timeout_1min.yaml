@@ -1,0 +1,22 @@
+output_root: results/experiments/squad_validation_all_chunkers_defaults_timeout_1min
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 1
+
+runs:
+  - name: all_chunkers_defaults_squad_validation_timeout_1min
+    documents_path: data/processed/squad/validation/documents/documents.jsonl
+    chunker_names:
+      - fixed_size
+      - passage
+      - passage_regexp
+      - passage_spacy
+      - text_tiling
+      - graphseg
+      - recursive_semantic
+      - max_min_chunker
+      - sequential_hac_chunker
+      - lumberchunker
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true

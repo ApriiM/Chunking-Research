@@ -1,0 +1,17 @@
+language: zh
+pre_segment_target_size: 512
+max_attempts: 3
+model_type: Qwen
+include_moc_metadata: false
+
+# Router + experts from submodules/meta_chunking/MoC/chunk_MoC.py
+router_model: submodules/meta_chunking/model/moe/moerouter
+expert_models:
+  - submodules/meta_chunking/model/moe/trainmoe_0_120
+  - submodules/meta_chunking/model/moe/trainmoe_120_150
+  - submodules/meta_chunking/model/moe/trainmoe_150_180
+  - submodules/meta_chunking/model/moe/trainmoe_over180
+
+# Extractor / fallback model for recovery paths.
+extractor_model: model/Qwen2.5-7B-Instruct
+show_progress: true

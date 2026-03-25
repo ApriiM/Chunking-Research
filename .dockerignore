@@ -1,0 +1,37 @@
+.git
+.gitmodules
+
+# Local environments and caches
+.venv
+.venv-literaryqa
+.venv-moc
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local artifacts / logs
+results/experiments/
+export_to_pirb/
+examples/
+downloads/
+convert.log
+screenlog.0
+all_methods_all_datasets_defaults_timeout_20min.tar.xz
+all_methods_all_datasets_defaults_timeout_20min.zip
+
+# Keep only prepared datasets in image.
+data/*
+!data/processed/
+!data/processed/**
+!data/graphseg/
+!data/graphseg/**
+
+# Optional for offline data-loader workflows (large, excluded by default):
+# !data/hf_cache/
+# !data/hf_cache/**
+# !data/wiki_cache/
+# !data/wiki_cache/**

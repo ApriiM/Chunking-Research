@@ -1,0 +1,41 @@
+output_root: results/experiments/lumberchunker_selected_datasets
+overwrite: false
+continue_on_error: true
+
+runs:
+  - name: lumberchunker_selected_datasets_main
+    chunker_name: lumberchunker
+    chunker_params: {}
+    documents_paths:
+      # gutenqa
+      - data/processed/gutenqa/all/documents/documents.jsonl
+      - data/processed/gutenqa/all_merged/documents/documents.jsonl
+
+      # novelqa
+      - data/processed/novelqa/public/documents/documents.jsonl
+
+      # poquad
+      - data/processed/poquad/validation/documents/documents.jsonl
+      - data/processed/poquad/validation_merged/documents/documents.jsonl
+
+      # qasper
+      - data/processed/qasper/test/documents/documents.jsonl
+
+      # squad
+      - data/processed/squad/validation/documents/documents.jsonl
+
+      # triviaqa (train 1000 docs + merged)
+      - data/processed/triviaqa_span_annotated/train_artificial_1000_docs/documents/documents.jsonl
+      - data/processed/triviaqa_span_annotated/train_artificial_1000_docs_merged/documents/documents.jsonl
+    repeats: 1
+    copy_inputs: true
+
+  # Keep these last as requested.
+  - name: lumberchunker_selected_datasets_last
+    chunker_name: lumberchunker
+    chunker_params: {}
+    documents_paths:
+      - data/processed/literaryqa/test/documents/documents.jsonl
+      - data/processed/natural_questions/validation_100_docs/documents/documents.jsonl
+    repeats: 1
+    copy_inputs: true

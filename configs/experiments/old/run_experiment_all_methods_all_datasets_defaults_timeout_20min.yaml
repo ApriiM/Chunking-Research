@@ -1,0 +1,90 @@
+output_root: results/experiments/all_methods_all_datasets_defaults_timeout_20min
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 20
+
+# Dataset split preference applied:
+# train (if exists) -> validation (if no train) -> other split.
+# For novelqa, no train/validation exists, so we include both available subsets.
+datasets: &datasets
+  - data/processed/gutenqa/all/documents/documents.jsonl
+  - data/processed/gutenqa_concat/all/documents/documents.jsonl
+  - data/processed/literaryqa/train/documents/documents.jsonl
+  - data/processed/natural_questions/validation/documents/documents.jsonl
+  - data/processed/novelqa/public/documents/documents.jsonl
+  - data/processed/novelqa/copyright/documents/documents.jsonl
+  - data/processed/poquad/train/documents/documents.jsonl
+  - data/processed/qasper/train/documents/documents.jsonl
+  - data/processed/squad/train/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/train_artificial/documents/documents.jsonl
+
+runs:
+  - name: fixed_size_defaults_all_datasets_timeout_20min
+    documents_paths: *datasets
+    chunker_name: fixed_size
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true
+
+  - name: passage_defaults_all_datasets_timeout_20min
+    documents_paths: *datasets
+    chunker_name: passage
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true
+
+  - name: passage_regexp_defaults_all_datasets_timeout_20min
+    documents_paths: *datasets
+    chunker_name: passage_regexp
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true
+
+  - name: passage_spacy_defaults_all_datasets_timeout_20min
+    documents_paths: *datasets
+    chunker_name: passage_spacy
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true
+
+  - name: text_tiling_defaults_all_datasets_timeout_20min
+    documents_paths: *datasets
+    chunker_name: text_tiling
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true
+
+  - name: recursive_semantic_defaults_all_datasets_timeout_20min
+    documents_paths: *datasets
+    chunker_name: recursive_semantic
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true
+
+  - name: max_min_chunker_defaults_all_datasets_timeout_20min
+    documents_paths: *datasets
+    chunker_name: max_min_chunker
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true
+
+  - name: sequential_hac_chunker_defaults_all_datasets_timeout_20min
+    documents_paths: *datasets
+    chunker_name: sequential_hac_chunker
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true
+
+  - name: lumberchunker_defaults_all_datasets_timeout_20min
+    documents_paths: *datasets
+    chunker_name: lumberchunker
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true
+
+  - name: graphseg_defaults_all_datasets_timeout_20min
+    documents_paths: *datasets
+    chunker_name: graphseg
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true

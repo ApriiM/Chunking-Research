@@ -1,0 +1,63 @@
+output_root: results/experiments/FINAL_EXPERIMESNTS_processed_all_methods
+overwrite: false
+continue_on_error: true
+
+all_processed_documents_paths: &all_processed_documents_paths
+  - data/processed/gutenqa/all/documents/documents.jsonl
+  - data/processed/literaryqa/test/documents/documents.jsonl
+  - data/processed/natural_questions/validation_300_docs/documents/documents.jsonl
+  - data/processed/poquad/validation/documents/documents.jsonl
+  - data/processed/qasper/test/documents/documents.jsonl
+  - data/processed/squad/train/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/test_artificial_1000_docs/documents/documents.jsonl
+# long runs:
+  - data/processed/poquad/validation_merged/documents/documents.jsonl
+  - data/processed/novelqa/public/documents/documents.jsonl
+  - data/processed/gutenqa/all_merged/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/test_artificial_1000_docs_merged/documents/documents.jsonl
+
+runs:
+  - name: fixed_size_all_processed
+    chunker_name: fixed_size
+    chunker_params: {}
+    documents_paths: *all_processed_documents_paths
+
+  - name: max_min_chunker_all_processed
+    chunker_name: max_min_chunker
+    chunker_params: {}
+    documents_paths: *all_processed_documents_paths
+
+  - name: recursive_semantic_all_processed
+    chunker_name: recursive_semantic
+    chunker_params: {}
+    documents_paths: *all_processed_documents_paths
+
+  - name: sequential_hac_chunker_all_processed
+    chunker_name: sequential_hac_chunker
+    chunker_params: {}
+    documents_paths: *all_processed_documents_paths
+
+  - name: text_tiling_all_processed
+    chunker_name: text_tiling
+    chunker_params: {}
+    documents_paths: *all_processed_documents_paths
+
+  - name: graphseg_all_processed
+    chunker_name: graphseg
+    chunker_params: {}
+    documents_paths: *all_processed_documents_paths
+
+  - name: lumberchunker_all_processed
+    chunker_name: lumberchunker
+    chunker_params: {}
+    documents_paths: *all_processed_documents_paths
+
+  - name: dense_x_retrieval_all_processed
+    chunker_name: dense_x_retrieval
+    chunker_params: {}
+    documents_paths: *all_processed_documents_paths
+
+  - name: lumberchunker_api_all_processed
+    chunker_name: lumberchunker_api
+    chunker_params: {}
+    documents_paths: *all_processed_documents_paths

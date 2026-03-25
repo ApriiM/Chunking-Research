@@ -1,0 +1,21 @@
+chunker:
+  name: moc
+  params:
+    language: zh
+    pre_segment_target_size: 512
+    include_moc_metadata: false
+    # Override these if your local model paths differ:
+    router_model: submodules/meta_chunking/model/moe/moerouter
+    expert_models:
+      - submodules/meta_chunking/model/moe/trainmoe_0_120
+      - submodules/meta_chunking/model/moe/trainmoe_120_150
+      - submodules/meta_chunking/model/moe/trainmoe_150_180
+      - submodules/meta_chunking/model/moe/trainmoe_over180
+    extractor_model: model/Qwen2.5-7B-Instruct
+
+documents_path: data/fiqa2018/processed/documents/documents.jsonl
+
+output:
+  save_chunks: true
+  chunks_path: data/fiqa2018/processed/passages_all/passages_moc.jsonl
+  overwrite: true

@@ -1,0 +1,12 @@
+output_root: results/experiments/merged_doc_results
+overwrite: false
+continue_on_error: true
+
+runs:
+  - name: merged_doc_results
+    documents_path: data/processed/qasper/test_merged/documents/documents.jsonl
+    chunker_names:
+      - fixed_size
+    chunker_params: {}
+    repeats: 1
+    copy_inputs: true

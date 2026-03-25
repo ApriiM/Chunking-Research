@@ -1,0 +1,11 @@
+provider: openai
+model: gpt-4o-mini
+group_size_threshold: 350
+max_retries: 3
+sleep_seconds: 20
+max_output_tokens: 100
+temperature: 0.1
+request_timeout_seconds: 120
+dotenv_path: .env
+load_dotenv: true
+show_progress: true

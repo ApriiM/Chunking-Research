@@ -1,0 +1,166 @@
+output_root: results/experiments/chunking_all_methods_new_datasets
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 360
+
+train_documents_paths: &train_documents_paths
+  # gutenqa (single split family -> train list)
+  - data/processed/gutenqa/all/documents/documents.jsonl
+  - data/processed/gutenqa/all_merged/documents/documents.jsonl
+
+  # literaryqa
+  - data/processed/literaryqa/validation/documents/documents.jsonl
+
+  # natural_questions (only validation variants available -> train list)
+  - data/processed/natural_questions/validation_100_docs/documents/documents.jsonl
+  - data/processed/natural_questions/validation_300_docs/documents/documents.jsonl
+
+  # novelqa (non train/test/validation split names -> train list)
+  - data/processed/novelqa/public/documents/documents.jsonl
+
+  # poquad
+  - data/processed/poquad/train/documents/documents.jsonl
+  - data/processed/poquad/train_merged/documents/documents.jsonl
+
+  # qasper
+  - data/processed/qasper/train/documents/documents.jsonl
+
+  # squad
+  - data/processed/squad/train/documents/documents.jsonl
+
+  # triviaqa_span_annotated
+  - data/processed/triviaqa_span_annotated/train_artificial_1000_docs/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/train_artificial_1000_docs_merged/documents/documents.jsonl
+
+test_validation_documents_paths: &test_validation_documents_paths
+  # literaryqa
+  - data/processed/literaryqa/test/documents/documents.jsonl
+
+  # poquad
+  - data/processed/poquad/validation/documents/documents.jsonl
+  - data/processed/poquad/validation_merged/documents/documents.jsonl
+
+  # qasper
+  - data/processed/qasper/test/documents/documents.jsonl
+  - data/processed/qasper/validation/documents/documents.jsonl
+
+  # squad
+  - data/processed/squad/validation/documents/documents.jsonl
+
+  # triviaqa_span_annotated
+  - data/processed/triviaqa_span_annotated/test_artificial_1000_docs/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/test_artificial_1000_docs_merged/documents/documents.jsonl
+
+# Backward-compatible combined list used by current runs.
+all_documents_paths: &all_documents_paths
+  - data/processed/gutenqa/all/documents/documents.jsonl
+  - data/processed/gutenqa/all_merged/documents/documents.jsonl
+  - data/processed/literaryqa/test/documents/documents.jsonl
+  - data/processed/literaryqa/train/documents/documents.jsonl
+  - data/processed/literaryqa/validation/documents/documents.jsonl
+  - data/processed/natural_questions/validation_100_docs/documents/documents.jsonl
+  - data/processed/natural_questions/validation_300_docs/documents/documents.jsonl
+  - data/processed/novelqa/copyright/documents/documents.jsonl
+  - data/processed/novelqa/public/documents/documents.jsonl
+  - data/processed/poquad/train/documents/documents.jsonl
+  - data/processed/poquad/train_merged/documents/documents.jsonl
+  - data/processed/poquad/validation/documents/documents.jsonl
+  - data/processed/poquad/validation_merged/documents/documents.jsonl
+  - data/processed/qasper/test/documents/documents.jsonl
+  - data/processed/qasper/train/documents/documents.jsonl
+  - data/processed/qasper/validation/documents/documents.jsonl
+  - data/processed/squad/train/documents/documents.jsonl
+  - data/processed/squad/validation/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/test_artificial_1000_docs/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/test_artificial_1000_docs_merged/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/train_artificial_1000_docs/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/train_artificial_1000_docs_merged/documents/documents.jsonl
+
+runs:
+  # Train phase: all methods on train/single-split datasets.
+  - name: fixed_size_train_datasets
+    chunker_name: fixed_size
+    chunker_params: {}
+    documents_paths: *train_documents_paths
+
+  - name: dense_x_train_datasets
+    chunker_name: dense_x_retrieval
+    chunker_params: {}
+    documents_paths: *train_documents_paths
+
+  - name: max_min_train_datasets
+    chunker_name: max_min_chunker
+    chunker_params: {}
+    documents_paths: *train_documents_paths
+
+  - name: recursive_semantic_train_datasets
+    chunker_name: recursive_semantic
+    chunker_params: {}
+    documents_paths: *train_documents_paths
+
+  - name: sequential_hac_train_datasets
+    chunker_name: sequential_hac_chunker
+    chunker_params: {}
+    documents_paths: *train_documents_paths
+
+  - name: text_tiling_train_datasets
+    chunker_name: text_tiling
+    chunker_params: {}
+    documents_paths: *train_documents_paths
+
+  - name: graph_sec_train_datasets
+    chunker_name: graphseg
+    chunker_params: {}
+    documents_paths: *train_documents_paths
+
+  - name: lumberchunker_train_datasets
+    chunker_name: lumberchunker
+    chunker_params: {}
+    documents_paths: *train_documents_paths
+
+  # Evaluation phase: all methods on test/validation datasets.
+  - name: fixed_size_test_validation_datasets
+    chunker_name: fixed_size
+    chunker_params: {}
+    documents_paths: *test_validation_documents_paths
+
+  - name: dense_x_test_validation_datasets
+    chunker_name: dense_x_retrieval
+    chunker_params: {}
+    documents_paths: *test_validation_documents_paths
+
+  - name: max_min_test_validation_datasets
+    chunker_name: max_min_chunker
+    chunker_params: {}
+    documents_paths: *test_validation_documents_paths
+
+  - name: recursive_semantic_test_validation_datasets
+    chunker_name: recursive_semantic
+    chunker_params: {}
+    documents_paths: *test_validation_documents_paths
+
+  - name: sequential_hac_test_validation_datasets
+    chunker_name: sequential_hac_chunker
+    chunker_params: {}
+    documents_paths: *test_validation_documents_paths
+
+  - name: text_tiling_test_validation_datasets
+    chunker_name: text_tiling
+    chunker_params: {}
+    documents_paths: *test_validation_documents_paths
+
+  - name: graph_sec_test_validation_datasets
+    chunker_name: graphseg
+    chunker_params: {}
+    documents_paths: *test_validation_documents_paths
+
+  - name: lumberchunker_test_validation_datasets
+    chunker_name: lumberchunker
+    chunker_params: {}
+    documents_paths: *test_validation_documents_paths
+
+  # Run API-based LumberChunker last, on train datasets only.
+  - name: lumberchunker_api_train_datasets
+    chunker_name: lumberchunker_api
+    chunker_params: {}
+    documents_paths: *train_documents_paths

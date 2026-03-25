@@ -1,0 +1,13 @@
+output_root: results/experiments/passage_spacy_novelqa_public_long
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 20
+
+runs:
+  - name: passage_spacy_novelqa_public_long
+    documents_path: data/processed/novelqa/public/documents/documents.jsonl
+    chunker_name: passage_spacy
+    chunker_params:
+      show_progress: true
+    repeats: 1
+    copy_inputs: true

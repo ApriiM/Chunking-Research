@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib.util
+import json
 import math
 from string import Template
 from typing import List, Dict, Any, Optional, Tuple
@@ -145,6 +147,13 @@ class DenseXRetrievalChunker(BaseChunker):
         # Load tokenizer + model
         self._tokenizer = AutoTokenizer.from_pretrained(self.model_id)
 
+        if importlib.util.find_spec("accelerate") is None:
+            raise ImportError(
+                "dense_x_retrieval requires the 'accelerate' package because model "
+                "loading uses `device_map`. Install it in the active environment with: "
+                "`pip install accelerate`."
+            )
+
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
             device_map=self.device,
@@ -226,14 +235,86 @@ class DenseXRetrievalChunker(BaseChunker):
     ) -> PropositionList:
 
         prompt = _build_prompt(segment_text)
-
-        result: PropositionList = _(
-            prompt,
-            max_new_tokens=self.max_new_tokens,
-            temperature=0.0,
+        model_inputs = self._tokenizer(
+            [prompt],
+            return_tensors="pt",
         )
+        if hasattr(self._model, "device") and str(self._model.device) != "meta":
+            model_inputs = {k: v.to(self._model.device) for k, v in model_inputs.items()}
 
-        return result
+        pad_token_id = self._tokenizer.pad_token_id
+        if pad_token_id is None:
+            pad_token_id = self._tokenizer.eos_token_id
+
+        with torch.no_grad():
+            generated_ids = self._model.generate(
+                **model_inputs,
+                max_new_tokens=self.max_new_tokens,
+                do_sample=False,
+                pad_token_id=pad_token_id,
+            )
+
+        generated_only = generated_ids[:, model_inputs["input_ids"].shape[1]:]
+        response = self._tokenizer.batch_decode(
+            generated_only,
+            skip_special_tokens=True,
+        )[0].strip()
+
+        if not response:
+            return PropositionList()
+
+        try:
+            parsed = self._extract_json_payload(response)
+            return PropositionList(
+                propositions=self._coerce_propositions(parsed)
+            )
+        except ValueError:
+            # Fallback for non-JSON outputs: keep non-empty lines as propositions.
+            lines = [
+                line.lstrip("-*• ").strip()
+                for line in response.splitlines()
+                if line.strip()
+            ]
+            return PropositionList(propositions=lines)
+
+    def _extract_json_payload(self, text: str) -> Any:
+        decoder = json.JSONDecoder()
+        stripped = text.strip()
+
+        try:
+            payload, _ = decoder.raw_decode(stripped)
+            return payload
+        except json.JSONDecodeError:
+            pass
+
+        for idx, char in enumerate(stripped):
+            if char not in "{[":
+                continue
+            try:
+                payload, _ = decoder.raw_decode(stripped[idx:])
+                return payload
+            except json.JSONDecodeError:
+                continue
+
+        raise ValueError("Model output did not contain valid JSON")
+
+    def _coerce_propositions(self, payload: Any) -> List[str]:
+        if isinstance(payload, list):
+            raw_props = payload
+        elif isinstance(payload, dict) and "propositions" in payload:
+            raw_props = payload["propositions"]
+        else:
+            raise ValueError("JSON payload does not match expected proposition schema")
+
+        if not isinstance(raw_props, list):
+            raise ValueError("Expected propositions to be a list")
+
+        propositions: List[str] = []
+        for item in raw_props:
+            text = str(item).strip()
+            if text:
+                propositions.append(text)
+        return propositions
 
     def _process_document(
         self,

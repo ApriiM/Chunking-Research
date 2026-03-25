@@ -16,7 +16,7 @@ scipy
 jupyterlab>=4.2.5
 transformers>=4.43.4
 torch>=2.4.0
-accelerate>=0.30.0
+accelerate>=0.30.0  # required for dense_x_retrieval (transformers device_map)
 openai>=1.40.0
 google-generativeai>=0.8.0
 mteb==1.14.20

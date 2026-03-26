@@ -1,0 +1,12 @@
+output_root: results/experiments/025_dense_x_retrieval_literaryqa_test
+overwrite: false
+continue_on_error: true
+
+selected_documents_paths: &selected_documents_paths
+  - data/processed/literaryqa/test/documents/documents.jsonl
+
+runs:
+  - name: dense_x_retrieval_literaryqa_test
+    chunker_name: dense_x_retrieval
+    chunker_params: {}
+    documents_paths: *selected_documents_paths

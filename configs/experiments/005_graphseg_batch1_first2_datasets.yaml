@@ -1,0 +1,13 @@
+output_root: results/experiments/005_graphseg_batch1_first2_datasets
+overwrite: false
+continue_on_error: true
+
+selected_documents_paths: &selected_documents_paths
+  - data/processed/gutenqa/all/documents/documents.jsonl
+  - data/processed/literaryqa/test/documents/documents.jsonl
+
+runs:
+  - name: graphseg_batch1_first2_datasets
+    chunker_name: graphseg
+    chunker_params: {}
+    documents_paths: *selected_documents_paths

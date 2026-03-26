@@ -1,0 +1,13 @@
+output_root: results/experiments/009_lumberchunker_batch2_next2_datasets
+overwrite: false
+continue_on_error: true
+
+selected_documents_paths: &selected_documents_paths
+  - data/processed/natural_questions/validation_300_docs/documents/documents.jsonl
+  - data/processed/poquad/validation/documents/documents.jsonl
+
+runs:
+  - name: lumberchunker_batch2_next2_datasets
+    chunker_name: lumberchunker
+    chunker_params: {}
+    documents_paths: *selected_documents_paths

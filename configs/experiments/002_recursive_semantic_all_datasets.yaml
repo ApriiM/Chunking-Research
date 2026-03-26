@@ -1,0 +1,18 @@
+output_root: results/experiments/002_recursive_semantic_all_datasets
+overwrite: false
+continue_on_error: true
+
+selected_documents_paths: &selected_documents_paths
+  - data/processed/gutenqa/all/documents/documents.jsonl
+  - data/processed/literaryqa/test/documents/documents.jsonl
+  - data/processed/natural_questions/validation_300_docs/documents/documents.jsonl
+  - data/processed/poquad/validation/documents/documents.jsonl
+  - data/processed/qasper/test/documents/documents.jsonl
+  - data/processed/squad/train/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/test_artificial_1000_docs/documents/documents.jsonl
+
+runs:
+  - name: recursive_semantic_all_selected
+    chunker_name: recursive_semantic
+    chunker_params: {}
+    documents_paths: *selected_documents_paths

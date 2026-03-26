@@ -1,0 +1,12 @@
+output_root: results/experiments/032_dense_x_retrieval_novelqa_public
+overwrite: false
+continue_on_error: true
+
+selected_documents_paths: &selected_documents_paths
+  - data/processed/novelqa/public/documents/documents.jsonl
+
+runs:
+  - name: dense_x_retrieval_novelqa_public
+    chunker_name: dense_x_retrieval
+    chunker_params: {}
+    documents_paths: *selected_documents_paths

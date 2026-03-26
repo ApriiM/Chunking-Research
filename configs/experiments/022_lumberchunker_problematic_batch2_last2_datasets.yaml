@@ -1,0 +1,13 @@
+output_root: results/experiments/022_lumberchunker_problematic_batch2_last2_datasets
+overwrite: false
+continue_on_error: true
+
+selected_documents_paths: &selected_documents_paths
+  - data/processed/gutenqa/all_merged/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/test_artificial_1000_docs_merged/documents/documents.jsonl
+
+runs:
+  - name: lumberchunker_problematic_batch2_last2_datasets
+    chunker_name: lumberchunker
+    chunker_params: {}
+    documents_paths: *selected_documents_paths

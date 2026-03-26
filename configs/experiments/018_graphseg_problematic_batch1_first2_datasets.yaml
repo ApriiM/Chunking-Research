@@ -1,0 +1,13 @@
+output_root: results/experiments/018_graphseg_problematic_batch1_first2_datasets
+overwrite: false
+continue_on_error: true
+
+selected_documents_paths: &selected_documents_paths
+  - data/processed/poquad/validation_merged/documents/documents.jsonl
+  - data/processed/novelqa/public/documents/documents.jsonl
+
+runs:
+  - name: graphseg_problematic_batch1_first2_datasets
+    chunker_name: graphseg
+    chunker_params: {}
+    documents_paths: *selected_documents_paths

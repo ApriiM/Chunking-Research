@@ -1,0 +1,13 @@
+output_root: results/experiments/008_graphseg_batch2_next2_datasets
+overwrite: false
+continue_on_error: true
+
+selected_documents_paths: &selected_documents_paths
+  - data/processed/natural_questions/validation_300_docs/documents/documents.jsonl
+  - data/processed/poquad/validation/documents/documents.jsonl
+
+runs:
+  - name: graphseg_batch2_next2_datasets
+    chunker_name: graphseg
+    chunker_params: {}
+    documents_paths: *selected_documents_paths

@@ -1,0 +1,12 @@
+output_root: results/experiments/034_dense_x_retrieval_triviaqa_test_artificial_1000_docs_merged
+overwrite: false
+continue_on_error: true
+
+selected_documents_paths: &selected_documents_paths
+  - data/processed/triviaqa_span_annotated/test_artificial_1000_docs_merged/documents/documents.jsonl
+
+runs:
+  - name: dense_x_retrieval_triviaqa_test_artificial_1000_docs_merged
+    chunker_name: dense_x_retrieval
+    chunker_params: {}
+    documents_paths: *selected_documents_paths

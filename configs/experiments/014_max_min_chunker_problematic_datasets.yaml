@@ -1,0 +1,15 @@
+output_root: results/experiments/014_max_min_chunker_problematic_datasets
+overwrite: false
+continue_on_error: true
+
+problematic_documents_paths: &problematic_documents_paths
+  - data/processed/poquad/validation_merged/documents/documents.jsonl
+  - data/processed/novelqa/public/documents/documents.jsonl
+  - data/processed/gutenqa/all_merged/documents/documents.jsonl
+  - data/processed/triviaqa_span_annotated/test_artificial_1000_docs_merged/documents/documents.jsonl
+
+runs:
+  - name: max_min_chunker_problematic_datasets
+    chunker_name: max_min_chunker
+    chunker_params: {}
+    documents_paths: *problematic_documents_paths

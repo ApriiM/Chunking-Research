@@ -1,0 +1,12 @@
+output_root: results/experiments/033_dense_x_retrieval_gutenqa_all_merged
+overwrite: false
+continue_on_error: true
+
+selected_documents_paths: &selected_documents_paths
+  - data/processed/gutenqa/all_merged/documents/documents.jsonl
+
+runs:
+  - name: dense_x_retrieval_gutenqa_all_merged
+    chunker_name: dense_x_retrieval
+    chunker_params: {}
+    documents_paths: *selected_documents_paths

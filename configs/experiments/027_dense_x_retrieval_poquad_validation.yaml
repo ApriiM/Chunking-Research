@@ -1,0 +1,12 @@
+output_root: results/experiments/027_dense_x_retrieval_poquad_validation
+overwrite: false
+continue_on_error: true
+
+selected_documents_paths: &selected_documents_paths
+  - data/processed/poquad/validation/documents/documents.jsonl
+
+runs:
+  - name: dense_x_retrieval_poquad_validation
+    chunker_name: dense_x_retrieval
+    chunker_params: {}
+    documents_paths: *selected_documents_paths

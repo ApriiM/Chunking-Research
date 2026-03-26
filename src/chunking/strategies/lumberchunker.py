@@ -9,6 +9,7 @@ import torch
 import os
 import textwrap
 from nltk.tokenize import sent_tokenize
+from ..core.hf_cache import resolve_hf_cache_dir, hf_local_files_only
 
 
 @chunker("lumberchunker")
@@ -45,6 +46,8 @@ class LumberChunker(BaseChunker):
         self._max_retries = int(config["max_retries"]) if "max_retries" in config else 3
         self._sleep_seconds = int(config["sleep_seconds"]) if "sleep_seconds" in config else 20
         self._max_new_tokens = int(config["max_new_tokens"]) if "max_new_tokens" in config else 100
+        self._hf_cache_dir = resolve_hf_cache_dir(config)
+        self._hf_local_files_only = hf_local_files_only(config)
         
         if self._group_size_threshold <= 0:
             raise ValueError("group_size_threshold must be positive")
@@ -57,14 +60,22 @@ class LumberChunker(BaseChunker):
         
         token = os.environ.get("HUGGINGFACE_HUB_TOKEN")
 
-        self._tokenizer = AutoTokenizer.from_pretrained(model_id, token=token, trust_remote_code=True)
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            model_id,
+            token=token,
+            trust_remote_code=True,
+            cache_dir=self._hf_cache_dir,
+            local_files_only=self._hf_local_files_only,
+        )
         
         dtype = torch.float16 if torch.cuda.is_available() else torch.float32
         self._model = AutoModelForCausalLM.from_pretrained(
             model_id,
             dtype=dtype,
             device_map="auto",
-            token=token
+            token=token,
+            cache_dir=self._hf_cache_dir,
+            local_files_only=self._hf_local_files_only,
         )
 
     def split_text(

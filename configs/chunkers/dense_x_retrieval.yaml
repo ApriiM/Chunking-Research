@@ -1,6 +1,6 @@
 # parametry sprawdzić jak sobie radzi przez clarin api i z jaki kontekst modelu. w papierze nrak info, gpt-4 był i bardzo krotkie dokumnenty
 # a my mamy tez długie
-model: "Qwen/Qwen3.5-4B"          # Model HF do generowania propozycji
+model: "Qwen/Qwen3-4B-Instruct-2507"  # Model HF do generowania propozycji
 max_context: 6000               # Maksymalna liczba tokenów, jeśli nie podano, użyje domyślnych
 max_new_tokens: 3000             # Maksymalna liczba tokenów do wygenerowania w oknie
 batch_size: 4                    # Batch size dla pipeline HF

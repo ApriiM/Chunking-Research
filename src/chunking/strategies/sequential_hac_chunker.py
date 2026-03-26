@@ -7,6 +7,7 @@ from sentence_transformers import SentenceTransformer
 from ..core.base import BaseChunker, Chunk
 from ..core.progress import coerce_progress_enabled, iter_with_progress
 from ..core.registry import chunker
+from ..core.hf_cache import resolve_hf_cache_dir
 
 @chunker("sequential_hac_chunker")
 class SequentialHACChunker(BaseChunker):
@@ -28,9 +29,13 @@ class SequentialHACChunker(BaseChunker):
 
         self.model_name = config.get("model_name", "BAAI/bge-m3") 
         self.distance_threshold = float(config.get("distance_threshold", 0.3))
+        self._hf_cache_dir = resolve_hf_cache_dir(config)
         
         print(f"Loading Sequential HAC model: {self.model_name}")
-        self.embedding_model = SentenceTransformer(self.model_name)
+        self.embedding_model = SentenceTransformer(
+            self.model_name,
+            cache_folder=self._hf_cache_dir,
+        )
 
     def split_text(
         self,

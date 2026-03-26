@@ -8,6 +8,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from ..core.base import BaseChunker, Chunk
 from ..core.progress import coerce_progress_enabled, iter_with_progress
 from ..core.registry import chunker
+from ..core.hf_cache import resolve_hf_cache_dir
 
 
 @chunker("recursive_semantic")
@@ -70,6 +71,7 @@ class RecursiveSemanticChunker(BaseChunker):
         )
 
         self._embeddings = self.config.get("embeddings", None)
+        self._hf_cache_dir = resolve_hf_cache_dir(self.config)
 
         if self.delta <= 0:
             raise ValueError("delta must be positive")
@@ -186,7 +188,10 @@ class RecursiveSemanticChunker(BaseChunker):
         - the model name from self.embedding_model
         """
         if self._embeddings is None:
-            self._embeddings = HuggingFaceEmbeddings(model_name=self.embedding_model)
+            self._embeddings = HuggingFaceEmbeddings(
+                model_name=self.embedding_model,
+                cache_folder=self._hf_cache_dir,
+            )
         return self._embeddings
 
     def _get_semantic_splitter(self, breakpoint_threshold: float) -> SemanticChunker:

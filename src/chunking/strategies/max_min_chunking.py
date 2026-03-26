@@ -6,6 +6,7 @@ from sentence_transformers import SentenceTransformer
 from ..core.base import BaseChunker, Chunk
 from ..core.progress import coerce_progress_enabled, iter_with_progress
 from ..core.registry import chunker
+from ..core.hf_cache import resolve_hf_cache_dir
 
 def process_sentences(sentences, embeddings, fixed_threshold=0.6, c=0.9, init_constant=1.5):
     """
@@ -82,9 +83,13 @@ class MaxMinChunker(BaseChunker):
         self.c_param = float(config.get("c_param", 0.9))
         self.hard_threshold = float(config.get("hard_threshold", 0.6))
         self.init_const = float(config.get("init_const", 1.5))
+        self._hf_cache_dir = resolve_hf_cache_dir(config)
         
         print(f"Loading MaxMin model: {self.model_name}")
-        self.embedding_model = SentenceTransformer(self.model_name)
+        self.embedding_model = SentenceTransformer(
+            self.model_name,
+            cache_folder=self._hf_cache_dir,
+        )
 
     def split_text(
         self,

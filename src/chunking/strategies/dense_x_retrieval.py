@@ -12,13 +12,14 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from ..core.base import BaseChunker, Chunk
 from ..core.registry import chunker
+from ..core.hf_cache import resolve_hf_cache_dir, hf_local_files_only
 
 
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
 
-_DEFAULT_MODEL = "Qwen/Qwen3-7B"
+_DEFAULT_MODEL = "Qwen/Qwen3-4B-Instruct-2507"
 _DEFAULT_CONTEXT_TOKENS = 32_768
 _OVERLAP_RATIO = 0.05
 _PROMPT_OVERHEAD_TOKENS = 700
@@ -124,6 +125,8 @@ class DenseXRetrievalChunker(BaseChunker):
         self._overlap_ratio: float = float(
             self.config.get("overlap_ratio", _OVERLAP_RATIO)
         )
+        self._hf_cache_dir = resolve_hf_cache_dir(self.config)
+        self._hf_local_files_only = hf_local_files_only(self.config)
 
         # Device
         device_config = self.config.get("device", "auto")
@@ -145,7 +148,11 @@ class DenseXRetrievalChunker(BaseChunker):
             self.torch_dtype = None  # let HF decide
 
         # Load tokenizer + model
-        self._tokenizer = AutoTokenizer.from_pretrained(self.model_id)
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            self.model_id,
+            cache_dir=self._hf_cache_dir,
+            local_files_only=self._hf_local_files_only,
+        )
 
         if importlib.util.find_spec("accelerate") is None:
             raise ImportError(
@@ -158,6 +165,8 @@ class DenseXRetrievalChunker(BaseChunker):
             self.model_id,
             device_map=self.device,
             torch_dtype=self.torch_dtype,
+            cache_dir=self._hf_cache_dir,
+            local_files_only=self._hf_local_files_only,
         )
 
         # Budget

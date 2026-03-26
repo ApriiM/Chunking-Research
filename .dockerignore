@@ -29,6 +29,8 @@ data/*
 !data/processed/**
 !data/graphseg/
 !data/graphseg/**
+!data/hf_cached_models/
+!data/hf_cached_models/**
 
 # Optional for offline data-loader workflows (large, excluded by default):
 # !data/hf_cache/

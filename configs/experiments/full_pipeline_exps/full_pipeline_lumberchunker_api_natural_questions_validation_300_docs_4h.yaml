@@ -1,0 +1,13 @@
+output_root: results/experiments/full_pipeline_lumberchunker_api_natural_questions_validation_300_docs_4h
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 240
+
+selected_documents_paths: &selected_documents_paths
+  - data/processed/natural_questions/validation_300_docs/documents/documents.jsonl
+
+runs:
+  - name: full_pipeline_lumberchunker_api_natural_questions_validation_300_docs_4h
+    chunker_name: lumberchunker_api
+    chunker_params: {}
+    documents_paths: *selected_documents_paths

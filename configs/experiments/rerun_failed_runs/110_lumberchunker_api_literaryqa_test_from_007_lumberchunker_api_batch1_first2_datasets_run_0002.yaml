@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/110_lumberchunker_api_literaryqa_test_from_007_lumberchunker_api_batch1_first2_datasets_run_0002
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_110_lumberchunker_api_literaryqa_test_run_0002
+  chunker_name: lumberchunker_api
+  chunker_params: {}
+  documents_path: data/processed/literaryqa/test/documents/documents.jsonl

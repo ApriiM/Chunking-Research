@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/101_recursive_semantic_literaryqa_test_from_002_recursive_semantic_all_datasets_run_0002
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_101_recursive_semantic_literaryqa_test_run_0002
+  chunker_name: recursive_semantic
+  chunker_params: {}
+  documents_path: data/processed/literaryqa/test/documents/documents.jsonl

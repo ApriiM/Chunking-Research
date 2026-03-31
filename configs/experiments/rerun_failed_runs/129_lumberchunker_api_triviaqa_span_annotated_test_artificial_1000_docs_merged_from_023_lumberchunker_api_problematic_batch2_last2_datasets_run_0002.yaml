@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/129_lumberchunker_api_triviaqa_span_annotated_test_artificial_1000_docs_merged_from_023_lumberchunker_api_problematic_batch2_last2_datasets_run_0002
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_129_lumberchunker_api_triviaqa_span_annotated_test_artificial_1000_docs_merged_run_0002
+  chunker_name: lumberchunker_api
+  chunker_params: {}
+  documents_path: data/processed/triviaqa_span_annotated/test_artificial_1000_docs_merged/documents/documents.jsonl

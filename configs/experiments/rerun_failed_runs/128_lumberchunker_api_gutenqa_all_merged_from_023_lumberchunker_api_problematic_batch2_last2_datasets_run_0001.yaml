@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/128_lumberchunker_api_gutenqa_all_merged_from_023_lumberchunker_api_problematic_batch2_last2_datasets_run_0001
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_128_lumberchunker_api_gutenqa_all_merged_run_0001
+  chunker_name: lumberchunker_api
+  chunker_params: {}
+  documents_path: data/processed/gutenqa/all_merged/documents/documents.jsonl

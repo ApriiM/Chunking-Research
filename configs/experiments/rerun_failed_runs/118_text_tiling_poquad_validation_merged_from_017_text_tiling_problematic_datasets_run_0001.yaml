@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/118_text_tiling_poquad_validation_merged_from_017_text_tiling_problematic_datasets_run_0001
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_118_text_tiling_poquad_validation_merged_run_0001
+  chunker_name: text_tiling
+  chunker_params: {}
+  documents_path: data/processed/poquad/validation_merged/documents/documents.jsonl

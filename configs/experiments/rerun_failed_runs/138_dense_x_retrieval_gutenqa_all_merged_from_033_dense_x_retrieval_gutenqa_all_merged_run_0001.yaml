@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/138_dense_x_retrieval_gutenqa_all_merged_from_033_dense_x_retrieval_gutenqa_all_merged_run_0001
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_138_dense_x_retrieval_gutenqa_all_merged_run_0001
+  chunker_name: dense_x_retrieval
+  chunker_params: {}
+  documents_path: data/processed/gutenqa/all_merged/documents/documents.jsonl

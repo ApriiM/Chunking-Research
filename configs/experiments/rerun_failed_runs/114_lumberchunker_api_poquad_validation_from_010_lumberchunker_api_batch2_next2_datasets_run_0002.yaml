@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/114_lumberchunker_api_poquad_validation_from_010_lumberchunker_api_batch2_next2_datasets_run_0002
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_114_lumberchunker_api_poquad_validation_run_0002
+  chunker_name: lumberchunker_api
+  chunker_params: {}
+  documents_path: data/processed/poquad/validation/documents/documents.jsonl

@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/106_recursive_semantic_triviaqa_span_annotated_test_artificial_1000_docs_from_002_recursive_semantic_all_datasets_run_0007
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_106_recursive_semantic_triviaqa_span_annotated_test_artificial_1000_docs_run_0007
+  chunker_name: recursive_semantic
+  chunker_params: {}
+  documents_path: data/processed/triviaqa_span_annotated/test_artificial_1000_docs/documents/documents.jsonl

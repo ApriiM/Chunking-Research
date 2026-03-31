@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/135_dense_x_retrieval_squad_train_from_029_dense_x_retrieval_squad_train_run_0001
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_135_dense_x_retrieval_squad_train_run_0001
+  chunker_name: dense_x_retrieval
+  chunker_params: {}
+  documents_path: data/processed/squad/train/documents/documents.jsonl

@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/113_lumberchunker_api_natural_questions_validation_300_docs_from_010_lumberchunker_api_batch2_next2_datasets_run_0001
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_113_lumberchunker_api_natural_questions_validation_300_docs_run_0001
+  chunker_name: lumberchunker_api
+  chunker_params: {}
+  documents_path: data/processed/natural_questions/validation_300_docs/documents/documents.jsonl

@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/108_graphseg_literaryqa_test_from_005_graphseg_batch1_first2_datasets_run_0002
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_108_graphseg_literaryqa_test_run_0002
+  chunker_name: graphseg
+  chunker_params: {}
+  documents_path: data/processed/literaryqa/test/documents/documents.jsonl

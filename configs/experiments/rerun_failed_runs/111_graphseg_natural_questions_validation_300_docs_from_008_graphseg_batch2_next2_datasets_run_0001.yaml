@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/111_graphseg_natural_questions_validation_300_docs_from_008_graphseg_batch2_next2_datasets_run_0001
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_111_graphseg_natural_questions_validation_300_docs_run_0001
+  chunker_name: graphseg
+  chunker_params: {}
+  documents_path: data/processed/natural_questions/validation_300_docs/documents/documents.jsonl

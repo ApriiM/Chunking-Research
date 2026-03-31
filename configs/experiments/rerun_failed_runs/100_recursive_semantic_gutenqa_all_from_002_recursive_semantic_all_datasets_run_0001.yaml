@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/100_recursive_semantic_gutenqa_all_from_002_recursive_semantic_all_datasets_run_0001
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_100_recursive_semantic_gutenqa_all_run_0001
+  chunker_name: recursive_semantic
+  chunker_params: {}
+  documents_path: data/processed/gutenqa/all/documents/documents.jsonl

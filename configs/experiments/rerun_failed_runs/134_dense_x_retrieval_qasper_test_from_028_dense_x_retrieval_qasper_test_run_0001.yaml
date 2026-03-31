@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/134_dense_x_retrieval_qasper_test_from_028_dense_x_retrieval_qasper_test_run_0001
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_134_dense_x_retrieval_qasper_test_run_0001
+  chunker_name: dense_x_retrieval
+  chunker_params: {}
+  documents_path: data/processed/qasper/test/documents/documents.jsonl

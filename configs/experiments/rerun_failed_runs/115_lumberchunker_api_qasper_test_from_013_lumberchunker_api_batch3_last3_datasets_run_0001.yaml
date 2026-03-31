@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/115_lumberchunker_api_qasper_test_from_013_lumberchunker_api_batch3_last3_datasets_run_0001
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_115_lumberchunker_api_qasper_test_run_0001
+  chunker_name: lumberchunker_api
+  chunker_params: {}
+  documents_path: data/processed/qasper/test/documents/documents.jsonl

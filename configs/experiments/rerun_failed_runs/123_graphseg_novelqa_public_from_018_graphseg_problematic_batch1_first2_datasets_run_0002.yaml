@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/123_graphseg_novelqa_public_from_018_graphseg_problematic_batch1_first2_datasets_run_0002
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_123_graphseg_novelqa_public_run_0002
+  chunker_name: graphseg
+  chunker_params: {}
+  documents_path: data/processed/novelqa/public/documents/documents.jsonl

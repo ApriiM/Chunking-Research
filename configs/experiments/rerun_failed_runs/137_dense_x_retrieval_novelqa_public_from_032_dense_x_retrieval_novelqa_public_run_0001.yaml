@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/137_dense_x_retrieval_novelqa_public_from_032_dense_x_retrieval_novelqa_public_run_0001
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_137_dense_x_retrieval_novelqa_public_run_0001
+  chunker_name: dense_x_retrieval
+  chunker_params: {}
+  documents_path: data/processed/novelqa/public/documents/documents.jsonl

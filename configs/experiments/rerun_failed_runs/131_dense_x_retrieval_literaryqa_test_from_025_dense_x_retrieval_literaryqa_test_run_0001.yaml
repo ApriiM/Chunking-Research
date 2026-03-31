@@ -1,0 +1,9 @@
+output_root: results/experiments/rerun_failed_runs/131_dense_x_retrieval_literaryqa_test_from_025_dense_x_retrieval_literaryqa_test_run_0001
+overwrite: false
+continue_on_error: true
+max_chunking_minutes: 2880
+runs:
+- name: rerun_131_dense_x_retrieval_literaryqa_test_run_0001
+  chunker_name: dense_x_retrieval
+  chunker_params: {}
+  documents_path: data/processed/literaryqa/test/documents/documents.jsonl

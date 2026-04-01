@@ -1,10 +1,14 @@
+"""Export experiment runs to PIRB format with extractive relevance remapping."""
+
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 import json
 import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from typing import Callable, Iterable, Iterator, List, Optional, Sequence
 from tqdm.auto import tqdm
 
@@ -38,6 +42,31 @@ class ExportSummary:
     failures: List[RunExportFailure]
     extractive_query_count: int
     extractive_not_found_ids: List[str]
+
+
+@dataclass(frozen=True)
+class PassageConversionStats:
+    """Counts collected while converting one run's passages."""
+
+    passages_count: int
+    parent_doc_count: int
+
+
+@dataclass(frozen=True)
+class QueryConversionStats:
+    """Timing and workload metrics collected while converting one run's queries."""
+
+    total_queries: int
+    extractive_query_count: int
+    extractive_not_found_count: int
+    unique_extractive_bins: int
+    average_candidate_passages_per_bin: float
+    max_candidate_passages_per_bin: int
+    average_merged_chars_per_bin: float
+    max_merged_chars_per_bin: int
+    scan_phase_seconds: float
+    prepare_bins_phase_seconds: float
+    convert_phase_seconds: float
 
 
 def _is_valid_run_dir(path: Path) -> bool:
@@ -165,21 +194,26 @@ def _extract_parent_id(row: dict) -> str:
 def _convert_passages(
     src_passages: Path,
     dst_passages: Path,
-) -> tuple[dict[str, List[str]], dict[str, str]]:
+) -> tuple[dict[str, List[str]], dict[str, str], PassageConversionStats]:
     doc_to_passages: dict[str, List[str]] = {}
     normalized_passage_contents: dict[str, str] = {}
     dst_passages.parent.mkdir(parents=True, exist_ok=True)
+    passages_count = 0
 
     with dst_passages.open("w", encoding="utf-8") as out_f:
-        for idx, row in enumerate(_iter_jsonl(src_passages)):
+        for idx, row in enumerate(
+            tqdm(
+                _iter_jsonl(src_passages),
+                desc=f"Converting passages ({src_passages.parent.name})",
+                unit="passage",
+            )
+        ):
+            passages_count += 1
             # Normalize exported passage IDs to contiguous ascending strings.
             pid = str(idx)
             original_id = str(row.get("id") or row.get("passage_id") or idx)
             contents = str(
-                row.get("contents")
-                or row.get("text")
-                or row.get("content")
-                or ""
+                row.get("contents") or row.get("text") or row.get("content") or ""
             )
             parent_id = _extract_parent_id(row)
 
@@ -199,7 +233,14 @@ def _convert_passages(
             if mapped_parent_id:
                 doc_to_passages.setdefault(mapped_parent_id, []).append(pid)
 
-    return doc_to_passages, normalized_passage_contents
+    return (
+        doc_to_passages,
+        normalized_passage_contents,
+        PassageConversionStats(
+            passages_count=passages_count,
+            parent_doc_count=len(doc_to_passages),
+        ),
+    )
 
 
 def _normalize_text_for_match(text: str) -> str:
@@ -230,13 +271,34 @@ class _MergedPassageSpan:
     overlap_from_prev: int
 
 
+@dataclass(frozen=True)
+class _PreparedMergedBin:
+    """Prepared merged-text cache for one extractive candidate bin."""
+
+    candidate_passage_ids: List[str]
+    merged_text: str
+    spans: List[_MergedPassageSpan]
+    span_starts: List[int]
+    span_ends: List[int]
+
+
 def _merge_all_passages_with_spans(
     candidate_passage_ids: List[str],
     normalized_passage_contents: dict[str, str],
 ) -> tuple[str, List[_MergedPassageSpan]]:
     merged = ""
     spans: List[_MergedPassageSpan] = []
-    for pid in candidate_passage_ids:
+    passage_iterator: Iterable[str]
+    if len(candidate_passage_ids) >= 5000:
+        passage_iterator = tqdm(
+            candidate_passage_ids,
+            desc="Merging passages inside bin",
+            unit="passage",
+            leave=False,
+        )
+    else:
+        passage_iterator = candidate_passage_ids
+    for pid in passage_iterator:
         passage_text = normalized_passage_contents.get(pid, "")
         overlap_len = _find_overlap_len(merged, passage_text)
         start = len(merged) - overlap_len
@@ -267,22 +329,30 @@ def _iter_substring_positions(text: str, substring: str) -> Iterator[int]:
 def _find_covering_chunk_group(
     spans: List[_MergedPassageSpan],
     *,
+    span_starts: Sequence[int],
+    span_ends: Sequence[int],
     span_start: int,
     span_end: int,
 ) -> List[tuple[int, int]]:
-    start_candidates = [
-        idx
-        for idx, chunk in enumerate(spans)
-        if chunk.start <= span_start < chunk.end
-    ]
-    if not start_candidates:
+    """Find all contiguous span groups covering [span_start, span_end)."""
+
+    if not spans:
+        return []
+
+    # Candidate start index interval where:
+    # span.start <= span_start < span.end
+    first_idx_with_end_after_start = bisect_right(span_ends, span_start)
+    last_idx_with_start_before_end = bisect_right(span_starts, span_start) - 1
+    if first_idx_with_end_after_start > last_idx_with_start_before_end:
         return []
 
     groups: List[tuple[int, int]] = []
-    for start_idx in start_candidates:
-        end_idx = start_idx
-        while end_idx < len(spans) and spans[end_idx].end < span_end:
-            end_idx += 1
+    for start_idx in range(
+        first_idx_with_end_after_start,
+        last_idx_with_start_before_end + 1,
+    ):
+        # First chunk index with chunk.end >= span_end.
+        end_idx = bisect_left(span_ends, span_end, lo=start_idx)
         if end_idx >= len(spans):
             continue
         groups.append((start_idx, end_idx))
@@ -299,10 +369,78 @@ def _candidate_passage_ids_for_docs(
     return _dedupe_preserve_order(candidate_passage_ids)
 
 
+def _build_doc_key(relevant_doc_ids: Sequence[str]) -> tuple[str, ...]:
+    """Return an order-preserving deduplicated key for relevant document IDs."""
+
+    return tuple(_dedupe_preserve_order(relevant_doc_ids))
+
+
+def _prepare_merged_bin(
+    candidate_passage_ids: List[str],
+    normalized_passage_contents: dict[str, str],
+) -> _PreparedMergedBin:
+    """Build merged text/spans and precompute indexes for fast span lookup."""
+
+    merged_text, spans = _merge_all_passages_with_spans(
+        candidate_passage_ids,
+        normalized_passage_contents,
+    )
+    span_starts = [span.start for span in spans]
+    span_ends = [span.end for span in spans]
+    return _PreparedMergedBin(
+        candidate_passage_ids=candidate_passage_ids,
+        merged_text=merged_text,
+        spans=spans,
+        span_starts=span_starts,
+        span_ends=span_ends,
+    )
+
+
+def _candidate_passages_for_doc_key_id(
+    doc_key_id: int,
+    *,
+    doc_keys: Sequence[tuple[str, ...]],
+    doc_to_passages: dict[str, List[str]],
+    candidate_cache: dict[int, List[str]],
+) -> List[str]:
+    """Resolve candidate passage IDs for one doc-key id with memoization."""
+
+    cached = candidate_cache.get(doc_key_id)
+    if cached is not None:
+        return cached
+    candidate_passage_ids = _candidate_passage_ids_for_docs(
+        doc_keys[doc_key_id],
+        doc_to_passages,
+    )
+    candidate_cache[doc_key_id] = candidate_passage_ids
+    return candidate_passage_ids
+
+
+def _find_doc_key_id(
+    relevant_doc_ids: Sequence[str],
+    *,
+    doc_key_to_id: dict[tuple[str, ...], int],
+    doc_keys: List[tuple[str, ...]],
+) -> int:
+    """Intern a doc key and return its lightweight integer id."""
+
+    doc_key = _build_doc_key(relevant_doc_ids)
+    existing = doc_key_to_id.get(doc_key)
+    if existing is not None:
+        return existing
+    new_id = len(doc_keys)
+    doc_keys.append(doc_key)
+    doc_key_to_id[doc_key] = new_id
+    return new_id
+
+
 def _find_extractive_relevant_passages_in_merged(
     candidate_passage_ids: List[str],
     merged_text: str,
     spans: List[_MergedPassageSpan],
+    *,
+    span_starts: Sequence[int],
+    span_ends: Sequence[int],
     normalized_answers: List[str],
 ) -> tuple[List[str], List[float]]:
     if not candidate_passage_ids or not normalized_answers:
@@ -317,6 +455,8 @@ def _find_extractive_relevant_passages_in_merged(
             span_end = span_start + len(answer)
             groups = _find_covering_chunk_group(
                 spans,
+                span_starts=span_starts,
+                span_ends=span_ends,
                 span_start=span_start,
                 span_end=span_end,
             )
@@ -334,54 +474,90 @@ def _find_extractive_relevant_passages_in_merged(
     return relevant, relevant_scores
 
 
+def _average_ints(values: Sequence[int]) -> float:
+    if not values:
+        return 0.0
+    return float(sum(values)) / float(len(values))
+
+
 def _convert_queries(
     src_queries: Path,
     dst_queries: Path,
     *,
     doc_to_passages: dict[str, List[str]],
     normalized_passage_contents: dict[str, str],
-) -> tuple[int, List[str]]:
+) -> tuple[int, List[str], QueryConversionStats]:
     dst_queries.parent.mkdir(parents=True, exist_ok=True)
     extractive_query_count = 0
     extractive_not_found_ids: List[str] = []
     total_queries = 0
-    extractive_passage_bins: List[tuple[str, ...]] = []
-    seen_bins: set[tuple[str, ...]] = set()
+    extractive_bin_ids: List[int] = []
+    seen_extractive_bins: set[int] = set()
+    candidate_passage_counts_per_bin: List[int] = []
+    merged_chars_per_bin: List[int] = []
+    doc_key_to_id: dict[tuple[str, ...], int] = {}
+    doc_keys: List[tuple[str, ...]] = []
+    candidate_passage_cache: dict[int, List[str]] = {}
 
-    # First pass: count queries and group extractive queries by candidate
-    # passage-id bins so merged passage text is built once per bin.
-    for row in _iter_jsonl(src_queries):
+    # First pass: count queries and group extractive queries by lightweight
+    # doc-key bins so merged passage text is built once per unique candidate set.
+    scan_phase_start = perf_counter()
+    for row in tqdm(
+        _iter_jsonl(src_queries),
+        desc=f"Scanning queries ({src_queries.parent.parent.name})",
+        unit="query",
+    ):
         total_queries += 1
         metadata = row.get("metadata") or row.get("meta") or {}
         has_extractive = (
-            isinstance(metadata, dict)
-            and ("extractive_span_text_answer" in metadata)
+            isinstance(metadata, dict) and ("extractive_span_text_answer" in metadata)
         ) or ("extractive_span_text_answer" in row)
         if not has_extractive:
             continue
-        relevant_doc_ids = _to_str_list(row.get("relevant"))
-        candidate_passage_ids = _candidate_passage_ids_for_docs(
-            relevant_doc_ids,
-            doc_to_passages,
-        )
-        bin_key = tuple(candidate_passage_ids)
-        if bin_key in seen_bins:
-            continue
-        seen_bins.add(bin_key)
-        extractive_passage_bins.append(bin_key)
 
-    merged_cache: dict[tuple[str, ...], tuple[str, List[_MergedPassageSpan]]] = {}
-    for bin_key in tqdm(
-        extractive_passage_bins,
-        total=len(extractive_passage_bins),
+        relevant_doc_ids = _to_str_list(row.get("relevant"))
+        doc_key_id = _find_doc_key_id(
+            relevant_doc_ids,
+            doc_key_to_id=doc_key_to_id,
+            doc_keys=doc_keys,
+        )
+        if doc_key_id in seen_extractive_bins:
+            continue
+
+        seen_extractive_bins.add(doc_key_id)
+        extractive_bin_ids.append(doc_key_id)
+        candidate_passage_ids = _candidate_passages_for_doc_key_id(
+            doc_key_id,
+            doc_keys=doc_keys,
+            doc_to_passages=doc_to_passages,
+            candidate_cache=candidate_passage_cache,
+        )
+        candidate_passage_counts_per_bin.append(len(candidate_passage_ids))
+    scan_phase_seconds = perf_counter() - scan_phase_start
+
+    merged_cache: dict[int, _PreparedMergedBin] = {}
+    prepare_bins_phase_start = perf_counter()
+    for doc_key_id in tqdm(
+        extractive_bin_ids,
+        total=len(extractive_bin_ids),
         desc=f"Preparing extractive bins ({src_queries.parent.parent.name})",
         unit="bin",
     ):
-        merged_cache[bin_key] = _merge_all_passages_with_spans(
-            list(bin_key),
+        candidate_passage_ids = _candidate_passages_for_doc_key_id(
+            doc_key_id,
+            doc_keys=doc_keys,
+            doc_to_passages=doc_to_passages,
+            candidate_cache=candidate_passage_cache,
+        )
+        prepared = _prepare_merged_bin(
+            candidate_passage_ids,
             normalized_passage_contents,
         )
+        merged_cache[doc_key_id] = prepared
+        merged_chars_per_bin.append(len(prepared.merged_text))
+    prepare_bins_phase_seconds = perf_counter() - prepare_bins_phase_start
 
+    convert_phase_start = perf_counter()
     with dst_queries.open("w", encoding="utf-8") as out_f:
         for idx, row in enumerate(
             tqdm(
@@ -401,13 +577,21 @@ def _convert_queries(
             )
             # Source relevant is expected to be document IDs.
             relevant_doc_ids = _to_str_list(row.get("relevant"))
-            metadata = row.get("metadata") or row.get("meta") or {}
-            has_extractive = (isinstance(metadata, dict) and ("extractive_span_text_answer" in metadata)) or (
-                "extractive_span_text_answer" in row
-            )
-            candidate_passage_ids = _candidate_passage_ids_for_docs(
+            doc_key_id = _find_doc_key_id(
                 relevant_doc_ids,
-                doc_to_passages,
+                doc_key_to_id=doc_key_to_id,
+                doc_keys=doc_keys,
+            )
+            metadata = row.get("metadata") or row.get("meta") or {}
+            has_extractive = (
+                isinstance(metadata, dict)
+                and ("extractive_span_text_answer" in metadata)
+            ) or ("extractive_span_text_answer" in row)
+            candidate_passage_ids = _candidate_passages_for_doc_key_id(
+                doc_key_id,
+                doc_keys=doc_keys,
+                doc_to_passages=doc_to_passages,
+                candidate_cache=candidate_passage_cache,
             )
 
             if has_extractive:
@@ -424,21 +608,28 @@ def _convert_queries(
                     for answer in _to_str_list(extractive_values)
                 ]
                 normalized_answers = [answer for answer in normalized_answers if answer]
-                merged_text, spans = merged_cache.get(
-                    tuple(candidate_passage_ids),
-                    ("", []),
-                )
-                relevant, relevant_scores = _find_extractive_relevant_passages_in_merged(
-                    candidate_passage_ids,
-                    merged_text,
-                    spans,
-                    normalized_answers,
+
+                prepared = merged_cache.get(doc_key_id)
+                if prepared is None:
+                    prepared = _prepare_merged_bin(
+                        candidate_passage_ids,
+                        normalized_passage_contents,
+                    )
+                relevant, relevant_scores = (
+                    _find_extractive_relevant_passages_in_merged(
+                        prepared.candidate_passage_ids,
+                        prepared.merged_text,
+                        prepared.spans,
+                        span_starts=prepared.span_starts,
+                        span_ends=prepared.span_ends,
+                        normalized_answers=normalized_answers,
+                    )
                 )
                 if not relevant:
                     extractive_not_found_ids.append(qid)
             else:
                 relevant = candidate_passage_ids
-                relevant_scores = [1] * len(relevant)
+                relevant_scores = [1.0] * len(relevant)
 
             converted_row = {
                 "id": qid,
@@ -466,12 +657,35 @@ def _convert_queries(
             if export_metadata:
                 converted_row["metadata"] = export_metadata
             out_f.write(json.dumps(converted_row, ensure_ascii=False) + "\n")
+    convert_phase_seconds = perf_counter() - convert_phase_start
 
-    return extractive_query_count, extractive_not_found_ids
+    stats = QueryConversionStats(
+        total_queries=total_queries,
+        extractive_query_count=extractive_query_count,
+        extractive_not_found_count=len(extractive_not_found_ids),
+        unique_extractive_bins=len(extractive_bin_ids),
+        average_candidate_passages_per_bin=_average_ints(
+            candidate_passage_counts_per_bin
+        ),
+        max_candidate_passages_per_bin=max(candidate_passage_counts_per_bin, default=0),
+        average_merged_chars_per_bin=_average_ints(merged_chars_per_bin),
+        max_merged_chars_per_bin=max(merged_chars_per_bin, default=0),
+        scan_phase_seconds=scan_phase_seconds,
+        prepare_bins_phase_seconds=prepare_bins_phase_seconds,
+        convert_phase_seconds=convert_phase_seconds,
+    )
+
+    return extractive_query_count, extractive_not_found_ids, stats
 
 
 def _ensure_non_empty_relevant_in_queries(queries_path: Path) -> int:
-    rows = list(_iter_jsonl(queries_path))
+    rows = list(
+        tqdm(
+            _iter_jsonl(queries_path),
+            desc=f"Post-check empty relevant ({queries_path.parent.parent.name})",
+            unit="query",
+        )
+    )
     patched = 0
     for row in rows:
         relevant = row.get("relevant")
@@ -489,7 +703,12 @@ def _ensure_non_empty_relevant_in_queries(queries_path: Path) -> int:
         return 0
 
     with queries_path.open("w", encoding="utf-8") as out_f:
-        for row in rows:
+        for row in tqdm(
+            rows,
+            total=len(rows),
+            desc=f"Writing patched queries ({queries_path.parent.parent.name})",
+            unit="query",
+        ):
             out_f.write(json.dumps(row, ensure_ascii=False) + "\n")
     return patched
 
@@ -515,7 +734,8 @@ def export_runs_to_pirb(
     total_runs = len(run_dirs)
     for idx, run_dir in enumerate(run_dirs, start=1):
         if log_fn:
-            log_fn(f"[RUN {idx}/{total_runs}] processing {run_dir}")
+            log_fn(f"[RUN {idx}/{total_runs}] [START] processing {run_dir}")
+        run_start = perf_counter()
         missing = _missing_required_files(run_dir)
         if missing:
             reason = "missing required file(s): " + ", ".join(missing)
@@ -524,7 +744,9 @@ def export_runs_to_pirb(
                 log_fn(f"[FAIL] {run_dir} -> {reason}")
             continue
 
-        rel_run = _relative_run_path(run_dir, repo_root=repo_root, input_path=input_path)
+        rel_run = _relative_run_path(
+            run_dir, repo_root=repo_root, input_path=input_path
+        )
         target_run_dir = output_root / rel_run
 
         try:
@@ -537,32 +759,52 @@ def export_runs_to_pirb(
             # Copy metadata at run root.
             src_metadata = run_dir / "metadata.json"
             dst_metadata = target_run_dir / "metadata.json"
+            if log_fn:
+                log_fn("  [START] copying metadata.json")
             _copy_file(src_metadata, dst_metadata)
             copied.append(dst_metadata)
+            if log_fn:
+                log_fn("  [DONE] copying metadata.json")
 
             # Convert passages under passages/.
             src_passages = run_dir / "passages.jsonl"
             dst_passages = target_run_dir / "passages" / "passages.jsonl"
             if log_fn:
-                log_fn("  - converting passages.jsonl")
-            doc_to_passages, normalized_passage_contents = _convert_passages(
+                log_fn("  [START] converting passages.jsonl")
+            passages_phase_start = perf_counter()
+            (
+                doc_to_passages,
+                normalized_passage_contents,
+                passages_stats,
+            ) = _convert_passages(
                 src_passages,
                 dst_passages,
             )
+            passages_phase_seconds = perf_counter() - passages_phase_start
             copied.append(dst_passages)
+            if log_fn:
+                log_fn("  [DONE] converting passages.jsonl")
 
             # Convert queries under queries/.
             src_queries = run_dir / "queries" / "queries.jsonl"
             dst_queries = target_run_dir / "queries" / "queries.jsonl"
             if log_fn:
-                log_fn("  - converting queries/queries.jsonl")
-            run_extractive_count, run_extractive_not_found = _convert_queries(
+                log_fn("  [START] converting queries/queries.jsonl")
+            queries_phase_start = perf_counter()
+            (
+                run_extractive_count,
+                run_extractive_not_found,
+                query_stats,
+            ) = _convert_queries(
                 src_queries,
                 dst_queries,
                 doc_to_passages=doc_to_passages,
                 normalized_passage_contents=normalized_passage_contents,
             )
+            queries_phase_seconds = perf_counter() - queries_phase_start
             copied.append(dst_queries)
+            if log_fn:
+                log_fn("  [DONE] converting queries/queries.jsonl")
             extractive_query_count += run_extractive_count
             extractive_not_found_ids.extend(
                 [f"{run_dir} | {query_id}" for query_id in run_extractive_not_found]
@@ -576,7 +818,39 @@ def export_runs_to_pirb(
                 )
             )
             if log_fn:
-                log_fn(f"  -> OK {target_run_dir}")
+                log_fn(
+                    "  [TIMING] "
+                    f"passages_seconds={passages_phase_seconds:.3f} "
+                    f"queries_seconds={queries_phase_seconds:.3f} "
+                    f"run_total_seconds={(perf_counter() - run_start):.3f}"
+                )
+                log_fn(
+                    "  [PASSAGES] "
+                    f"passages_count={passages_stats.passages_count} "
+                    f"parent_doc_count={passages_stats.parent_doc_count}"
+                )
+                log_fn(
+                    "  [QUERIES] "
+                    f"total_queries={query_stats.total_queries} "
+                    f"extractive_queries={query_stats.extractive_query_count} "
+                    f"extractive_not_found={query_stats.extractive_not_found_count} "
+                    f"unique_extractive_bins={query_stats.unique_extractive_bins} "
+                    f"avg_bin_passages={query_stats.average_candidate_passages_per_bin:.2f} "
+                    f"max_bin_passages={query_stats.max_candidate_passages_per_bin} "
+                    f"avg_bin_chars={query_stats.average_merged_chars_per_bin:.2f} "
+                    f"max_bin_chars={query_stats.max_merged_chars_per_bin}"
+                )
+                log_fn(
+                    "  [QUERIES_TIMING] "
+                    f"scan_seconds={query_stats.scan_phase_seconds:.3f} "
+                    f"prepare_bins_seconds={query_stats.prepare_bins_phase_seconds:.3f} "
+                    f"convert_seconds={query_stats.convert_phase_seconds:.3f}"
+                )
+                log_fn(f"  [DONE] run conversion -> {target_run_dir}")
+                log_fn(
+                    f"[RUN {idx}/{total_runs}] [DONE] processing {run_dir} "
+                    f"(seconds={(perf_counter() - run_start):.3f})"
+                )
         except Exception as exc:
             reason = f"copy failed: {type(exc).__name__}: {exc}"
             failures.append(RunExportFailure(source_run_dir=run_dir, reason=reason))
@@ -584,14 +858,17 @@ def export_runs_to_pirb(
                 log_fn(f"[FAIL] {run_dir} -> {reason}")
 
     patched_queries = 0
+    if log_fn:
+        log_fn("[POST] [START] patching empty relevant lists in exported queries")
     for result in results:
         queries_path = result.target_run_dir / "queries" / "queries.jsonl"
         if not queries_path.is_file():
             continue
         patched_queries += _ensure_non_empty_relevant_in_queries(queries_path)
-    if log_fn and patched_queries:
+    if log_fn:
         log_fn(
-            f"[POST] patched empty relevant lists in exported queries: {patched_queries}"
+            f"[POST] [DONE] patching empty relevant lists in exported queries: "
+            f"{patched_queries}"
         )
 
     return ExportSummary(

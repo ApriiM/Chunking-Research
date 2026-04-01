@@ -1,5 +1,11 @@
 ## Chunking Research
-Toolkit for loading QA-style datasets into a unified documents/queries format and producing chunked passages for retrieval evaluation. Evaluation is out of scope—run it in your target system.
+Toolkit for loading QA-style datasets into a unified documents/queries format, producing chunked passages, and exporting them to PIRB format. PIRB evaluation is out of scope and is run downstream.
+
+## Canonical Workflow
+1. Use a pre-made dataset configuration and run required initialization script(s).
+2. Create experiment YAML files under `configs/experiments/`.
+3. Run YAML-based chunk preparation.
+4. Export chunks to PIRB format for later PIRB evaluation (outside this repo).
 
 ## Setup
 - Python 3.9+ recommended.
@@ -38,11 +44,12 @@ To add a new external chunking repository as a submodule, follow the steps in
 	2) Decorate the class with `@chunker("<name>")` and implement `split_text`.
 	3) Optionally add defaults in `configs/chunkers/<name>.yaml`.
 
-## Passage evaluation (retrieval)
-- Notebook: run `examples/03_eval_chunks.ipynb` to evaluate pre-chunked passages against queries.
-- CLI: `python -m src.eval_chunks --passages-meta data/processed/poquad/example/passages_all/passages_20251229T153044.meta.json --model-name jinaai/jina-embeddings-v2-small-en --output-path results/eval_chunks/poquad_fixed_size.json`
-- Late chunking (pool spans from full documents): add `--late-chunking --late-docs-source passages` (rebuilds document context by concatenating passage texts; use `--passage-separator` to control glue). For long documents, use `--truncate-max-length` or `--long-late-chunking-embed-size` with `--long-late-chunking-overlap-size`.
-- Requires the late-chunking dependencies (`mteb`, `transformers`, `torch`) from the submodule environment.
+## Export to PIRB
+- Script entrypoint: `bash run_conversion_to_pirb.sh`
+- Python entrypoint: `python run_annotate_and_convert.py`
+- Purpose: produce PIRB-compatible artifacts for downstream evaluation in PIRB.
+- Build baseline cache (signatures + timings): `scripts/build_pirb_export_baseline_cache.py --report-tsv <per_run.tsv> --export-session-path <session_dir>`
+- Compare current export vs baseline cache: `scripts/compare_pirb_export_baseline.py --baseline-dir <baseline_dir> --export-session-path <session_dir> --candidate-report-tsv <per_run.tsv>`
 
 ## Repository layout (essentials)
 - `src/data_loader/datasets/`: dataset-specific loaders (return documents/queries).
@@ -50,6 +57,15 @@ To add a new external chunking repository as a submodule, follow the steps in
 - `src/chunking/strategies/`: chunking strategies.
 - `configs/chunkers/`: per-chunker default params.
 - `configs/experiments/`: ready-to-run YAML configs for chunking CLI tools.
+
+## Documentation
+- `docs/README.md`: docs index and scope.
+- `docs/architecture.md`: module boundaries and runtime flow.
+- `docs/datasets.md`: dataset adapter conventions.
+- `docs/chunkers.md`: chunker registry/config extension workflow.
+- `docs/experiments.md`: experiment configuration and execution flow.
+- `docs/reproducibility.md`: reproducibility checklist and run hygiene.
+- `docs/troubleshooting.md`: common issues and quick checks.
 
 ## Tips
 - HF datasets cache under `data/hf_cache`; override via loader kwargs.

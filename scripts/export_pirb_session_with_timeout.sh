@@ -10,12 +10,15 @@ Usage:
     [--timeout-seconds 300] \
     [--python-bin .venv/bin/python] \
     [--output-root export_to_pirb] \
-    [--report-root export_to_pirb/_batch_reports]
+    [--report-root export_to_pirb/_batch_reports] \
+    [--run-name run_0002] [--run-name run_0011]
 
 Description:
   Runs PIRB export separately for each run_* directory directly under
   --session-path. Each run is capped by timeout; timed-out runs are skipped.
   Generates TSV + text reports with finished/skipped/error statuses.
+  When --run-name is provided one or more times, only selected run_* folders
+  are processed.
 EOF
 }
 
@@ -24,6 +27,7 @@ TIMEOUT_SECONDS=300
 PYTHON_BIN=".venv/bin/python"
 OUTPUT_ROOT="export_to_pirb"
 REPORT_ROOT="export_to_pirb/_batch_reports"
+RUN_NAMES=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -45,6 +49,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --report-root)
       REPORT_ROOT="${2:-}"
+      shift 2
+      ;;
+    --run-name)
+      RUN_NAMES+=("${2:-}")
       shift 2
       ;;
     -h|--help)
@@ -88,6 +96,42 @@ mapfile -t RUN_DIRS < <(find "$SESSION_PATH" -mindepth 1 -maxdepth 1 -type d -na
 if [[ "${#RUN_DIRS[@]}" -eq 0 ]]; then
   echo "No run_* subfolders found under: $SESSION_PATH" >&2
   exit 2
+fi
+
+if [[ "${#RUN_NAMES[@]}" -gt 0 ]]; then
+  declare -A RUN_DIR_BY_NAME=()
+  for run_dir in "${RUN_DIRS[@]}"; do
+    run_name="$(basename "$run_dir")"
+    RUN_DIR_BY_NAME["$run_name"]="$run_dir"
+  done
+
+  FILTERED_RUN_DIRS=()
+  MISSING_RUN_NAMES=()
+  declare -A ADDED_RUN_NAMES=()
+  for requested_name in "${RUN_NAMES[@]}"; do
+    candidate_dir="${RUN_DIR_BY_NAME[$requested_name]:-}"
+    if [[ -z "$candidate_dir" ]]; then
+      MISSING_RUN_NAMES+=("$requested_name")
+      continue
+    fi
+    if [[ -n "${ADDED_RUN_NAMES[$requested_name]:-}" ]]; then
+      continue
+    fi
+    ADDED_RUN_NAMES["$requested_name"]=1
+    FILTERED_RUN_DIRS+=("$candidate_dir")
+  done
+
+  if [[ "${#MISSING_RUN_NAMES[@]}" -gt 0 ]]; then
+    printf 'Warning: requested --run-name not found under session: %s\n' \
+      "${MISSING_RUN_NAMES[*]}" >&2
+  fi
+
+  if [[ "${#FILTERED_RUN_DIRS[@]}" -eq 0 ]]; then
+    echo "No valid selected runs found under: $SESSION_PATH" >&2
+    exit 2
+  fi
+
+  RUN_DIRS=("${FILTERED_RUN_DIRS[@]}")
 fi
 
 TS="$(date -u +%Y%m%dT%H%M%SZ)"

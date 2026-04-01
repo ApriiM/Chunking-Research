@@ -103,7 +103,11 @@ def test_convert_queries_reports_phase_metrics(tmp_path: Path) -> None:
 
     converted_rows = _read_jsonl(dst_queries)
     assert len(converted_rows) == 3
+    q1_row = next(row for row in converted_rows if row["id"] == "q1")
     q2_row = next(row for row in converted_rows if row["id"] == "q2")
     q3_row = next(row for row in converted_rows if row["id"] == "q3")
+    assert q1_row["relevant_scores"]
+    assert all(isinstance(score, float) for score in q1_row["relevant_scores"])
+    assert set(q1_row["relevant_scores"]) == {1.0}
     assert q2_row["relevant"]
     assert q3_row["relevant"] == []

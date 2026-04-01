@@ -629,7 +629,7 @@ def _convert_queries(
                     extractive_not_found_ids.append(qid)
             else:
                 relevant = candidate_passage_ids
-                relevant_scores = [1] * len(relevant)
+                relevant_scores = [1.0] * len(relevant)
 
             converted_row = {
                 "id": qid,

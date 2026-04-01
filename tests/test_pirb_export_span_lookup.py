@@ -111,4 +111,5 @@ def test_convert_queries_with_repeated_relevant_doc_ids(tmp_path: Path) -> None:
     ext_row = next(row for row in converted if row["id"] == "q_ext")
 
     assert plain_row["relevant"] == ["0", "1"]
+    assert plain_row["relevant_scores"] == [1.0, 1.0]
     assert ext_row["relevant"] == ["0"]

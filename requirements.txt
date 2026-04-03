@@ -35,3 +35,4 @@ sentence-transformers>=5.1.2
 nltk>=3.8.1
 ir-datasets
 scikit-learn
+tiktoken

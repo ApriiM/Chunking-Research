@@ -2,6 +2,7 @@ w: 20
 k: 10
 similarity_method: block_comparison
 stopwords: []
+stopwords_language: english
 smoothing_method: default
 smoothing_width: 2
 smoothing_rounds: 1

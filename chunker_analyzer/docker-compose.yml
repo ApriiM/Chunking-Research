@@ -1,0 +1,67 @@
+services:
+
+  # ── Main Flask backend ─────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      DATA_ROOT: /data
+      PORT: "8000"
+      SIMILARITY_URL: "http://similarity:5051/similarity"
+    volumes:
+      # Mount your data directory here:
+      #   HOST_PATH  →  /data  (read-only)
+      - ./backend/data:/data:ro
+    expose:
+      - "8000"
+    networks:
+      - app
+
+  # ── Similarity / reranker backend (GPU) ───────────────────────────────────
+  similarity:
+    build:
+      context: ./similarity_backend
+    restart: unless-stopped
+    environment:
+      SIM_PORT: "5051"
+      TRANSFORMERS_CACHE: /model-cache
+      HF_HOME: /model-cache
+      SENTENCE_TRANSFORMERS_HOME: /model-cache
+    volumes:
+      # Persist downloaded models so they survive restarts:
+      - model-cache:/model-cache
+    expose:
+      - "5051"
+    networks:
+      - app
+    # ── GPU access ──────────────────────────────────────────────────────────
+    # Requires: nvidia-container-toolkit installed on the host
+    #   https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1          # set to "all" to use every GPU
+              capabilities: [gpu]
+
+  # ── Frontend (nginx + React build) ────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - backend
+    networks:
+      - app
+
+networks:
+  app:
+    driver: bridge
+
+volumes:
+  # Named volume for HuggingFace / sentence-transformers model cache
+  model-cache:

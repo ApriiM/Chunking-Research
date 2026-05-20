@@ -1,0 +1,74 @@
+:root {
+  --bg: #0d0f14;
+  --bg2: #141720;
+  --bg3: #1c2030;
+  --border: #2a2f42;
+  --border2: #3a4060;
+  --text: #d6daf0;
+  --text2: #8891b0;
+  --text3: #555e80;
+  --accent: #5c7cfa;
+  --accent2: #748ffc;
+  --green: #37b24d;
+  --green-bg: #1a2e1e;
+  --red: #f03e3e;
+  --red-bg: #2e1a1a;
+  --yellow: #f59f00;
+  --yellow-bg: #2e2510;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+a { color: var(--accent2); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  cursor: pointer;
+  font-family: var(--sans);
+  border: none;
+  outline: none;
+}
+
+.mono { font-family: var(--mono); }
+
+/* Spinner */
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.page-center {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 60vh; gap: 12px; color: var(--text2);
+}
+
+.tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--mono); font-size: 11px;
+  padding: 2px 8px; border-radius: 3px;
+  font-weight: 500; letter-spacing: 0.03em;
+}
+.tag-green { background: var(--green-bg); color: var(--green); border: 1px solid #2a4a2e; }
+.tag-red   { background: var(--red-bg);   color: var(--red);   border: 1px solid #4a2a2a; }
+.tag-yellow{ background: var(--yellow-bg);color: var(--yellow); border: 1px solid #4a3a10; }
+.tag-blue  { background: #161f3e; color: var(--accent2); border: 1px solid #2a3860; }

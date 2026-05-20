@@ -1,0 +1,133 @@
+.section {
+  margin-bottom: 40px;
+}
+
+.sectionTitle {
+  font-family: var(--mono);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.chartsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 16px;
+}
+
+.chartCard {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.chartTitle {
+  font-family: var(--mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text2);
+  margin-bottom: 10px;
+}
+
+.legendRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text2);
+}
+
+.legendDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.legendHit {
+  font-size: 10px;
+  opacity: 0.9;
+}
+
+.legendMiss {
+  font-size: 10px;
+  color: var(--text3);
+}
+
+/* Tooltip */
+.tooltip {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 12px;
+  min-width: 200px;
+}
+
+.tooltipLabel {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text2);
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.tooltipRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-family: var(--mono);
+}
+
+.tooltipDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.tooltipName {
+  flex: 1;
+  color: var(--text);
+  font-size: 11px;
+  min-width: 80px;
+}
+
+.tooltipHit {
+  color: var(--green);
+  font-size: 11px;
+  min-width: 30px;
+  text-align: right;
+}
+
+.tooltipMiss {
+  color: var(--red);
+  font-size: 11px;
+  min-width: 30px;
+  text-align: right;
+}
+
+.tooltipPct {
+  color: var(--accent2);
+  font-size: 11px;
+  min-width: 42px;
+  text-align: right;
+}

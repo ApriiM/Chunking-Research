@@ -1,3 +1,8 @@
+# Accepted paper:
+
+Camera ready publication tied to the project that was accepted to the 30th International Conference on Knowledge-Based and Intelligent Information & Engineering Systems(KES-2026) conference 
+`Chunkig_for_RAG___KES26.pdf`
+
 ## Chunking Research
 Toolkit for loading QA-style datasets into a unified documents/queries format, producing chunked passages, and exporting them to PIRB format. PIRB evaluation is out of scope and is run downstream.
 
